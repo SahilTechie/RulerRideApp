@@ -1,0 +1,6 @@
+{
+  "name": "react-native-maps-web-stub",
+  "version": "1.0.0",
+  "main": "react-native-maps.js",
+  "private": true
+}
