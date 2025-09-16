@@ -1,10 +1,18 @@
 import * as Location from 'expo-location';
+import { Platform } from 'react-native';
 import { apiService } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface LocationCoordinates {
   latitude: number;
   longitude: number;
+}
+
+export interface WebLocationResult {
+  coordinates: LocationCoordinates;
+  address: string;
+  success: boolean;
+  error?: string;
 }
 
 export interface LocationAddress {
@@ -56,6 +64,182 @@ class LocationService {
     } catch (error) {
       console.error('Error getting current location:', error);
       return null;
+    }
+  }
+
+  // Web-compatible location detection
+  async getCurrentLocationWeb(): Promise<WebLocationResult> {
+    console.log('📍 Getting current location for web...');
+    
+    // Default Visakhapatnam coordinates
+    const defaultLocation: LocationCoordinates = {
+      latitude: 17.6868,
+      longitude: 83.2185
+    };
+
+    if (!navigator.geolocation) {
+      console.warn('⚠️ Geolocation not supported by this browser');
+      const defaultAddress = await this.webReverseGeocode(defaultLocation);
+      return {
+        coordinates: defaultLocation,
+        address: defaultAddress,
+        success: false,
+        error: 'Geolocation not supported'
+      };
+    }
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          resolve, 
+          reject, 
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000 // 5 minutes cache
+          }
+        );
+      });
+
+      const coordinates: LocationCoordinates = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
+
+      console.log('✅ Web location obtained:', coordinates);
+
+      // Get address from coordinates using Nominatim
+      const address = await this.webReverseGeocode(coordinates);
+      
+      return {
+        coordinates,
+        address,
+        success: true
+      };
+
+    } catch (error: any) {
+      console.error('❌ Error getting web location:', error);
+      
+      let errorMessage = 'Failed to get location';
+      if (error.code === 1) {
+        errorMessage = 'Location access denied. Please enable location permissions.';
+      } else if (error.code === 2) {
+        errorMessage = 'Location unavailable. Please check your GPS/internet connection.';
+      } else if (error.code === 3) {
+        errorMessage = 'Location request timeout. Please try again.';
+      }
+
+      // Return default location with error
+      const defaultAddress = await this.webReverseGeocode(defaultLocation);
+      return {
+        coordinates: defaultLocation,
+        address: defaultAddress,
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+
+  // Web reverse geocoding using Nominatim (OpenStreetMap) - FREE!
+  async webReverseGeocode(coordinates: LocationCoordinates): Promise<string> {
+    try {
+      console.log('🔍 Getting address for coordinates:', coordinates);
+      
+      // Use Nominatim API (OpenStreetMap) - completely free!
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coordinates.latitude}&lon=${coordinates.longitude}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'RulerRide-App/1.0' // Required by Nominatim
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📍 Nominatim response:', data);
+
+      // Format address from components
+      if (data.address) {
+        const addressParts = [];
+        
+        // Add road/street
+        if (data.address.road) {
+          addressParts.push(data.address.road);
+        }
+        
+        // Add area/neighbourhood
+        if (data.address.neighbourhood || data.address.suburb) {
+          addressParts.push(data.address.neighbourhood || data.address.suburb);
+        }
+        
+        // Add city
+        if (data.address.city) {
+          addressParts.push(data.address.city);
+        }
+        
+        // Add state if available
+        if (data.address.state) {
+          addressParts.push(data.address.state);
+        }
+
+        const formattedAddress = addressParts.join(', ');
+        console.log('✅ Formatted address:', formattedAddress);
+        return formattedAddress || data.display_name;
+      }
+
+      // Fallback to display_name
+      return data.display_name;
+
+    } catch (error) {
+      console.error('❌ Error getting address:', error);
+      
+      // Fallback address based on coordinates
+      if (coordinates.latitude >= 17.6 && coordinates.latitude <= 17.8 && 
+          coordinates.longitude >= 83.1 && coordinates.longitude <= 83.3) {
+        return 'Visakhapatnam, Andhra Pradesh, India';
+      }
+      
+      return `Location: ${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}`;
+    }
+  }
+
+  // Universal location getter (works on both web and mobile)
+  async getUniversalLocation(): Promise<WebLocationResult> {
+    if (Platform.OS === 'web') {
+      return this.getCurrentLocationWeb();
+    } else {
+      // Use existing mobile location logic
+      try {
+        const location = await this.getCurrentLocation();
+        if (location) {
+          const address = await this.reverseGeocode({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          });
+          
+          return {
+            coordinates: {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude
+            },
+            address: address?.formattedAddress || 'Unknown location',
+            success: true
+          };
+        }
+        
+        throw new Error('Failed to get mobile location');
+      } catch (error) {
+        return {
+          coordinates: { latitude: 17.6868, longitude: 83.2185 },
+          address: 'Visakhapatnam, Andhra Pradesh, India',
+          success: false,
+          error: 'Mobile location failed'
+        };
+      }
     }
   }
 

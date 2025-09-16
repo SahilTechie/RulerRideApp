@@ -62,7 +62,7 @@ export class AuthService {
       console.log(`🔐 Verifying OTP for ${phoneNumber}`);
 
       const response = await apiService.post<AuthResponse>('/auth/verify-otp', {
-        phone: phoneNumber,
+        phoneNumber: phoneNumber,
         otp: otp
       }, false); // No auth required for OTP verification
 

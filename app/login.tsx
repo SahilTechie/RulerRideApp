@@ -92,15 +92,10 @@ export default function LoginScreen() {
       const authResult = await AuthService.verifyOTP('', otpCode);
       console.log('✅ OTP Verification Result:', authResult);
       
-      Alert.alert('Success', 'Login successful!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            // After successful OTP verification, redirect to ride booking dashboard
-            router.replace('/(tabs)');
-          }
-        }
-      ]);
+      // Navigate directly without Alert to avoid navigation issues
+      console.log('🚀 Navigating to dashboard...');
+      router.replace('/(tabs)');
+      
     } catch (error: any) {
       console.error('❌ Verify OTP error:', error);
       Alert.alert('Invalid OTP', error.message || 'Please check your OTP and try again.');

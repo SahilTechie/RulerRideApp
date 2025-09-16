@@ -8,11 +8,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 import LocationService from '../../services/location';
 import RideBookingService from '../../services/booking';
+import MapView from '../../components/MapView'; // Using Leaflet MapView instead of GoogleMaps
 
-// Conditional import for maps (only on native platforms)
-const MapView = Platform.OS !== 'web' ? require('react-native-maps').default : null;
-const Marker = Platform.OS !== 'web' ? require('react-native-maps').Marker : null;
-const PROVIDER_GOOGLE = Platform.OS !== 'web' ? require('react-native-maps').PROVIDER_GOOGLE : null;
+// Remove the conditional import since we're using our GoogleMaps component
+// const MapView = Platform.OS !== 'web' ? require('react-native-maps').default : null;
+// const Marker = Platform.OS !== 'web' ? require('react-native-maps').Marker : null;
+// const PROVIDER_GOOGLE = Platform.OS !== 'web' ? require('react-native-maps').PROVIDER_GOOGLE : null;
 
 const vehicleTypes = [
   { id: 'bike', name: 'Bike', nameHindi: 'बाइक', icon: 'bicycle', baseFare: 50, perKm: 8, time: '5-8 min' },
@@ -56,17 +57,24 @@ export default function HomeScreen() {
         setUserProfile(JSON.parse(profile));
       }
 
-      // Request location permissions
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
+      // Request location permissions and get location
+      if (Platform.OS === 'web') {
+        // For web, we'll handle location detection in the MapView
         setLocationPermission(true);
-        getCurrentLocation();
+        getCurrentLocation(); // This will use our web-compatible location service
       } else {
-        Alert.alert(
-          'Location Permission Required',
-          'Please enable location services to book rides and get accurate pickup locations.',
-          [{ text: 'OK' }]
-        );
+        // For mobile, use Expo location
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          setLocationPermission(true);
+          getCurrentLocation();
+        } else {
+          Alert.alert(
+            'Location Permission Required',
+            'Please enable location services to book rides and get accurate pickup locations.',
+            [{ text: 'OK' }]
+          );
+        }
       }
 
       // Initialize socket connection for real-time updates
@@ -86,24 +94,112 @@ export default function HomeScreen() {
 
   const getCurrentLocation = async () => {
     try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setCurrentLocation(location);
-      
-      // Reverse geocode to get address
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-      
-      if (reverseGeocode[0]) {
-        const address = `${reverseGeocode[0].name || ''} ${reverseGeocode[0].street || ''}, ${reverseGeocode[0].city || ''}`;
-        setPickup(address.trim());
+      if (Platform.OS === 'web') {
+        // Use our enhanced location service for web
+        setIsLoadingLocation(true);
+        const result = await locationServiceInstance.getUniversalLocation();
+        
+        if (result.success) {
+          // Create a compatible location object
+          const location = {
+            coords: {
+              latitude: result.coordinates.latitude,
+              longitude: result.coordinates.longitude,
+              altitude: null,
+              accuracy: null,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null,
+            },
+            timestamp: Date.now(),
+          };
+          
+          setCurrentLocation(location);
+          setPickup(result.address);
+          console.log('✅ Web location detected:', { location: result.coordinates, address: result.address });
+        } else {
+          console.warn('⚠️ Web location detection failed:', result.error);
+          Alert.alert('Location Error', result.error || 'Unable to get your current location. Please enter pickup address manually.');
+        }
+      } else {
+        // Use original Expo location for mobile
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        setCurrentLocation(location);
+        
+        // Reverse geocode to get address
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        
+        if (reverseGeocode[0]) {
+          const address = `${reverseGeocode[0].name || ''} ${reverseGeocode[0].street || ''}, ${reverseGeocode[0].city || ''}`;
+          setPickup(address.trim());
+        }
       }
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert('Location Error', 'Unable to get your current location. Please enter pickup address manually.');
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  // Handle location detection from MapView
+  const handleLocationDetected = (coordinates: any, address: string) => {
+    console.log('📍 Location detected from map:', { coordinates, address });
+    
+    // Create a compatible location object
+    const location = {
+      coords: {
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        altitude: null,
+        accuracy: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      },
+      timestamp: Date.now(),
+    };
+    
+    setCurrentLocation(location);
+    setPickup(address);
+  };
+
+  // Handle map clicks
+  const handleMapClick = async (lat: number, lng: number, address?: string) => {
+    console.log('🗺️ Map clicked:', { lat, lng, address });
+    
+    // Create a compatible location object
+    const location = {
+      coords: {
+        latitude: lat,
+        longitude: lng,
+        altitude: null,
+        accuracy: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      },
+      timestamp: Date.now(),
+    };
+    
+    setCurrentLocation(location);
+    
+    if (address) {
+      setPickup(address);
+    } else {
+      // Get address for clicked location
+      try {
+        const clickedAddress = await locationServiceInstance.webReverseGeocode({ latitude: lat, longitude: lng });
+        setPickup(clickedAddress);
+      } catch (error) {
+        console.warn('Failed to get address for clicked location:', error);
+        setPickup(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+      }
     }
   };
 
@@ -222,42 +318,45 @@ export default function HomeScreen() {
               <ActivityIndicator size="large" color="#DC2626" />
               <Text style={styles.mapText}>Getting your location...</Text>
             </View>
-          ) : currentLocation && MapView && Platform.OS !== 'web' ? (
+          ) : currentLocation ? (
             <MapView
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={{
-                latitude: currentLocation.coords.latitude,
-                longitude: currentLocation.coords.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              showsUserLocation={true}
-              showsMyLocationButton={true}
-            >
-              <Marker
-                coordinate={{
-                  latitude: currentLocation.coords.latitude,
-                  longitude: currentLocation.coords.longitude,
-                }}
-                title="Your Location"
-                description="Current pickup location"
-              />
-            </MapView>
+              center={[currentLocation.coords.latitude, currentLocation.coords.longitude]}
+              zoom={15}
+              height={200}
+              width="100%"
+              autoDetectLocation={true}
+              showUserLocation={true}
+              onLocationDetected={handleLocationDetected}
+              onMapClick={handleMapClick}
+              markers={[
+                {
+                  position: [currentLocation.coords.latitude, currentLocation.coords.longitude],
+                  title: 'Your Location',
+                  popup: 'Current pickup location',
+                  color: 'green',
+                },
+                // Add destination marker if destination is set
+                ...(destination ? [{
+                  position: [
+                    currentLocation.coords.latitude + 0.01,
+                    currentLocation.coords.longitude + 0.01
+                  ] as [number, number],
+                  title: 'Destination',
+                  popup: destination,
+                  color: 'red' as const,
+                }] : [])
+              ]}
+            />
           ) : (
             <View style={styles.mapPlaceholder}>
               <Ionicons name="location-outline" size={60} color="#9CA3AF" />
-              <Text style={styles.mapText}>
-                {Platform.OS === 'web' ? 'Map view available on mobile' : 'Location access required'}
-              </Text>
-              {Platform.OS !== 'web' && (
-                <TouchableOpacity 
-                  style={styles.enableLocationBtn}
-                  onPress={getCurrentLocation}
-                >
-                  <Text style={styles.enableLocationText}>Enable Location</Text>
-                </TouchableOpacity>
-              )}
+              <Text style={styles.mapText}>Location access required</Text>
+              <TouchableOpacity 
+                style={styles.enableLocationBtn}
+                onPress={getCurrentLocation}
+              >
+                <Text style={styles.enableLocationText}>Enable Location</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
