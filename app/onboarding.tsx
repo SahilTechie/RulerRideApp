@@ -50,7 +50,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.container}>
+    <View style={styles.container}>
       <TouchableOpacity style={styles.skipButton} onPress={skipOnboarding}>
         <Text style={styles.skipText}>Skip</Text>
       </TouchableOpacity>
@@ -91,13 +91,14 @@ export default function OnboardingScreen() {
           <Ionicons name="arrow-forward" size={20} color="white" />
         </TouchableOpacity>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
     paddingHorizontal: 20,
   },
   skipButton: {
@@ -106,8 +107,9 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   skipText: {
-    color: '#64748b',
+    color: '#374151',
     fontSize: 16,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -131,27 +133,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#111827',
     textAlign: 'center',
     marginBottom: 8,
   },
   titleHindi: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#374151',
     textAlign: 'center',
     marginBottom: 30,
   },
   description: {
     fontSize: 16,
-    color: '#475569',
+    color: '#374151',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 8,
   },
   descriptionHindi: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#4B5563',
     textAlign: 'center',
     lineHeight: 20,
   },
