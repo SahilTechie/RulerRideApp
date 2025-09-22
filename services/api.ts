@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL, SOCKET_URL } from '../src/config/api';
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:3001/api', // Using localhost for web development
-  SOCKET_URL: 'http://localhost:3001',
+  BASE_URL: `${API_BASE_URL}/api`, // Using dynamic API URL
+  SOCKET_URL: SOCKET_URL,
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // 1 second
@@ -269,10 +270,11 @@ class ApiService {
   async healthCheck(): Promise<boolean> {
     try {
       // Direct fetch to health endpoint (not under /api path)
-      const healthUrl = this.baseURL.replace('/api', '') + '/health';
+      const healthUrl = API_BASE_URL + '/health';
+      console.log('🔍 Health check URL:', healthUrl);
       const response = await fetch(healthUrl);
       const data = await response.json();
-      return data.status === 'OK';
+      return data.status === 'healthy' || data.status === 'OK';
     } catch (error) {
       console.error('Health check failed:', error);
       return false;

@@ -31,7 +31,9 @@ const io = new Server(server, {
       'http://localhost:3000', 
       'http://localhost:19006', 
       'http://localhost:8081',
-      'http://192.168.59.82:8081'
+      'http://10.67.84.82:8081',
+      'exp://10.67.84.82:8081',
+      'exp://localhost:8081'
     ],
     methods: ['GET', 'POST'],
     credentials: true
@@ -73,7 +75,9 @@ app.use(cors({
     'http://localhost:3000', 
     'http://localhost:19006', 
     'http://localhost:8081',
-    'http://192.168.59.82:8081'
+    'http://10.67.84.82:8081',
+    'exp://10.67.84.82:8081',
+    'exp://localhost:8081'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

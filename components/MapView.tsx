@@ -1,12 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import './MapView.css'; // Import Leaflet CSS
-import LocationService, { LocationCoordinates } from '../services/location';
+import { View, StyleSheet, Platform, Text } from 'react-native';
 
-// Fix for default Leaflet marker icons in React using CDN URLs
+// Conditional imports for web only
+let MapContainer: any, TileLayer: any, Marker: any, Popup: any, useMapEvents: any, L: any;
+
 if (Platform.OS === 'web') {
+  const leaflet = require('react-leaflet');
+  MapContainer = leaflet.MapContainer;
+  TileLayer = leaflet.TileLayer;
+  Marker = leaflet.Marker;
+  Popup = leaflet.Popup;
+  useMapEvents = leaflet.useMapEvents;
+  L = require('leaflet');
+  
+  // Import CSS on web
+  require('./MapView.css');
+  
+  // Fix for default Leaflet marker icons
   delete (L.Icon.Default.prototype as any)._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -14,6 +24,8 @@ if (Platform.OS === 'web') {
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
   });
 }
+
+import LocationService, { LocationCoordinates } from '../services/location';
 
 interface MapViewProps {
   center?: [number, number];
@@ -35,7 +47,12 @@ interface MapViewProps {
 }
 
 // Custom marker icons
+// Create custom icon only on web
 const createCustomIcon = (color: string) => {
+  if (Platform.OS !== 'web' || !L) {
+    return null;
+  }
+  
   const colors = {
     red: '#DC2626',
     green: '#16A34A',
@@ -80,7 +97,7 @@ const MapClickHandler: React.FC<{
   const locationService = LocationService.getInstance();
   
   useMapEvents({
-    click: async (e) => {
+    click: async (e: any) => {
       if (onMapClick) {
         const { lat, lng } = e.latlng;
         console.log('🗺️ Map clicked at:', { lat, lng });
@@ -160,17 +177,15 @@ const MapView: React.FC<MapViewProps> = ({
       setIsDetectingLocation(false);
     }
   };
-  // Only render on web platform for now
+  // Mobile fallback - use React Native components only
   if (Platform.OS !== 'web') {
     return (
       <View style={[styles.fallbackContainer, style, { height, width }]}>
         <View style={styles.fallbackContent}>
-          <View style={styles.fallbackIcon}>
-            <span style={{ fontSize: 24 }}>🗺️</span>
-          </View>
-          <div style={styles.fallbackText}>
+          <Text style={styles.fallbackIcon}>🗺️</Text>
+          <Text style={styles.fallbackText}>
             Map view available on web
-          </div>
+          </Text>
         </View>
       </View>
     );

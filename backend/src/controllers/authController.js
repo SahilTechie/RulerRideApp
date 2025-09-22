@@ -129,7 +129,7 @@ class AuthController {
 
     await user.save();
 
-    // Set refresh token as HTTP-only cookie
+    // Set refresh token as HTTP-only cookie for web
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -143,6 +143,7 @@ class AuthController {
       data: {
         user: user.toSafeObject(),
         accessToken,
+        refreshToken, // Include refresh token for mobile apps
         tokenType: 'Bearer',
         expiresIn: 3600 // 1 hour
       }

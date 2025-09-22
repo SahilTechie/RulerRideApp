@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -293,24 +293,26 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#DC2626', '#EF4444']} style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.greetingHindi}>
-              {greeting.includes('Morning') ? 'सुप्रभात!' : greeting.includes('Afternoon') ? 'नमस्कार!' : 'शुभ संध्या!'}
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.profileIcon}
-            onPress={() => router.push('/profile')}
-          >
-            <Ionicons name="person" size={24} color="#DC2626" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Header section that scrolls with content */}
+        <ImageBackground 
+          source={require('@/assets/images/dashimg.jpg')} 
+          style={styles.header}
+          resizeMode="stretch"
+          imageStyle={styles.headerImage}
+        >
+          <View style={styles.headerOverlay}>
+            <View style={styles.headerContent}>
+              <View>
+                <Text style={styles.greeting}>{greeting}</Text>
+                <Text style={styles.greetingHindi}>
+                  {greeting.includes('Morning') ? 'सुप्रभात!' : greeting.includes('Afternoon') ? 'नमस्कार!' : 'शुभ संध्या!'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </ImageBackground>
+
         {/* Live Map View */}
         <View style={styles.mapContainer}>
           {isLoadingLocation ? (
@@ -484,9 +486,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingTop: 50,
+    height: 180, // Increased height for better image display
+    width: '100%',
+  },
+  headerImage: {
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
+  },
+  headerOverlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Lighter overlay for better image visibility
+    paddingTop: 60, // Account for status bar when scrollable
     paddingBottom: 20,
     paddingHorizontal: 20,
+    height: '100%',
+    justifyContent: 'center',
   },
   headerContent: {
     flexDirection: 'row',
@@ -513,10 +526,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   mapContainer: {
     marginVertical: 20,
+    marginHorizontal: 20,
     height: 200,
     borderRadius: 12,
     overflow: 'hidden',

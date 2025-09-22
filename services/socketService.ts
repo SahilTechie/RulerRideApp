@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG } from './api';
+import { SOCKET_URL } from '../src/config/api';
 import { LocationCoordinates } from './location';
 
 export interface SocketEvents {
@@ -122,8 +122,9 @@ class SocketService {
       }
 
       console.log('🔌 Connecting to Socket.IO server...');
+      console.log('🔗 Socket URL:', SOCKET_URL);
 
-      this.socket = io(API_CONFIG.SOCKET_URL, {
+      this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
         auth: {
           token: token

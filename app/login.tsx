@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, ImageBackground, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+
+// Create Animated LinearGradient
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '@/services/auth';
 import { apiService } from '@/services/api';
@@ -15,9 +18,26 @@ export default function LoginScreen() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const router = useRouter();
 
+  // Animation for gradient movement
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
   // Check backend connectivity on component mount
   useEffect(() => {
     checkBackendHealth();
+    
+    // Start gradient animation
+    const startAnimation = () => {
+      Animated.loop(
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: false,
+        }),
+        { resetBeforeIteration: true }
+      ).start();
+    };
+    
+    startAnimation();
   }, []);
 
   const checkBackendHealth = async () => {
@@ -130,21 +150,56 @@ export default function LoginScreen() {
     setOtp(newOtp);
   };
 
+  // Animated gradient positions
+  const animatedStartX = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const animatedStartY = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.5],
+  });
+
+  const animatedEndX = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+
+  const animatedEndY = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.5],
+  });
+
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.gradient}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+      <AnimatedLinearGradient 
+        colors={['#9CA3AF', '#D1D5DB', '#F3F4F6', '#E5E7EB']} 
+        start={{ x: animatedStartX, y: animatedStartY }}
+        end={{ x: animatedEndX, y: animatedEndY }}
+        style={styles.gradient}
+      >
+        <View style={styles.gradientOverlay}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logoCircle}>
-                <Text style={styles.logoText}>RR</Text>
+                <ImageBackground
+                  source={require('@/assets/images/RRimg.png')}
+                  style={styles.logoImageBackground}
+                  resizeMode="cover"
+                  imageStyle={styles.logoImageStyle}
+                >
+                  {/* Optional overlay for better visibility if needed */}
+                  <View style={styles.logoOverlay} />
+                </ImageBackground>
               </View>
               <Text style={styles.brandText}>RulerRide</Text>
             </View>
@@ -240,7 +295,8 @@ export default function LoginScreen() {
             )}
           </View>
         </ScrollView>
-      </LinearGradient>
+        </View>
+      </AnimatedLinearGradient>
     </KeyboardAvoidingView>
   );
 }
@@ -251,6 +307,10 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  gradientOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Very subtle white overlay for better readability
   },
   scrollContainer: {
     flexGrow: 1,
@@ -268,10 +328,34 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#DC2626',
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+  logoImageBackground: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoImageStyle: {
+    borderRadius: 35,
+  },
+  logoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 35,
   },
   logoText: {
     fontSize: 28,

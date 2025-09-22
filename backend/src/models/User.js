@@ -204,15 +204,36 @@ userSchema.methods.generateOTP = function() {
 };
 
 userSchema.methods.verifyOTP = function(otp) {
-  if (!this.lastOTP || !this.lastOTP.code) return false;
-  if (this.lastOTP.expiresAt < new Date()) return false;
-  if (this.lastOTP.attempts >= 3) return false;
+  console.log('🔍 Verifying OTP:', {
+    provided: otp,
+    stored: this.lastOTP?.code,
+    expiresAt: this.lastOTP?.expiresAt,
+    attempts: this.lastOTP?.attempts,
+    currentTime: new Date()
+  });
+  
+  if (!this.lastOTP || !this.lastOTP.code) {
+    console.log('❌ No OTP stored');
+    return false;
+  }
+  
+  if (this.lastOTP.expiresAt < new Date()) {
+    console.log('❌ OTP expired');
+    return false;
+  }
+  
+  if (this.lastOTP.attempts >= 3) {
+    console.log('❌ Too many attempts');
+    return false;
+  }
   
   if (this.lastOTP.code === otp) {
+    console.log('✅ OTP verified successfully');
     this.lastOTP = undefined;
     this.isVerified = true;
     return true;
   } else {
+    console.log('❌ OTP mismatch');
     this.lastOTP.attempts += 1;
     return false;
   }

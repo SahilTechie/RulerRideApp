@@ -70,11 +70,17 @@ export class AuthService {
         const { user, accessToken, refreshToken } = response.data;
         
         // Store auth tokens and user data
-        await AsyncStorage.multiSet([
+        const storageItems: [string, string][] = [
           ['auth_token', accessToken],
-          ['refresh_token', refreshToken],
           ['user_data', JSON.stringify(user)],
-        ]);
+        ];
+
+        // Only store refresh token if it exists
+        if (refreshToken) {
+          storageItems.push(['refresh_token', refreshToken]);
+        }
+
+        await AsyncStorage.multiSet(storageItems);
 
         // Clear pending phone
         await AsyncStorage.removeItem('pending_phone');
