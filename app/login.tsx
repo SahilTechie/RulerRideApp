@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, ImageBackground, Animated } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, ImageBackground, Animated, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
@@ -20,6 +20,9 @@ export default function LoginScreen() {
 
   // Animation for gradient movement
   const animatedValue = useRef(new Animated.Value(0)).current;
+
+  // Refs for OTP inputs to manage focus
+  const otpInputRefs = useRef<TextInput[]>([]);
 
   // Check backend connectivity on component mount
   useEffect(() => {
@@ -74,6 +77,12 @@ export default function LoginScreen() {
       if (result && result.success !== false) {
         setOtpExpiresIn(result.expiresIn || 600);
         setShowOTP(true);
+        
+        // Focus first OTP input after a small delay
+        setTimeout(() => {
+          otpInputRefs.current[0]?.focus();
+        }, 500);
+        
         Alert.alert('OTP Sent', result.message || `Verification code sent to ${fullPhone}`);
       } else {
         throw new Error(result?.message || 'Failed to send OTP');
@@ -135,6 +144,12 @@ export default function LoginScreen() {
       
       setOtpExpiresIn(result.expiresIn);
       setOtp(['', '', '', '']); // Clear current OTP
+      
+      // Focus first OTP input after resend
+      setTimeout(() => {
+        otpInputRefs.current[0]?.focus();
+      }, 300);
+      
       Alert.alert('OTP Resent', result.message || 'New verification code sent');
     } catch (error: any) {
       console.error('❌ Resend OTP error:', error);
@@ -145,9 +160,62 @@ export default function LoginScreen() {
   };
 
   const updateOTP = (value: string, index: number) => {
+    // Only allow digits
+    if (value !== '' && !/^\d$/.test(value)) {
+      return;
+    }
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
+
+    // Auto-focus logic
+    if (value !== '' && index < 3) {
+      // Move to next input
+      otpInputRefs.current[index + 1]?.focus();
+    } else if (value === '' && index > 0) {
+      // Move to previous input if deleting
+      otpInputRefs.current[index - 1]?.focus();
+    }
+
+    // Auto-verify when all 4 digits are entered
+    if (value !== '' && index === 3) {
+      const completeOtp = [...newOtp];
+      completeOtp[index] = value;
+      
+      // Check if all fields are filled
+      if (completeOtp.every(digit => digit !== '')) {
+        // Auto-trigger verification after a small delay for better UX
+        setTimeout(() => {
+          const otpCode = completeOtp.join('');
+          autoVerifyOTP(otpCode);
+        }, 300);
+      }
+    }
+  };
+
+  const autoVerifyOTP = async (otpCode: string) => {
+    if (loading) return; // Prevent multiple calls
+    
+    setLoading(true);
+    try {
+      console.log('🔐 Auto-verifying OTP:', otpCode);
+      
+      const authResult = await AuthService.verifyOTP('', otpCode);
+      console.log('✅ Auto OTP Verification Result:', authResult);
+      
+      console.log('🚀 Navigating to dashboard...');
+      router.replace('/(tabs)');
+      
+    } catch (error: any) {
+      console.error('❌ Auto Verify OTP error:', error);
+      Alert.alert('Invalid OTP', error.message || 'Please check your OTP and try again.');
+      // Clear the OTP and focus first input for retry
+      setOtp(['', '', '', '']);
+      otpInputRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Animated gradient positions
@@ -172,22 +240,28 @@ export default function LoginScreen() {
   });
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="transparent" 
+        translucent={true} 
+      />
       <AnimatedLinearGradient 
         colors={['#9CA3AF', '#D1D5DB', '#F3F4F6', '#E5E7EB']} 
         start={{ x: animatedStartX, y: animatedStartY }}
         end={{ x: animatedEndX, y: animatedEndY }}
         style={styles.gradient}
+      />
+      <KeyboardAvoidingView 
+        style={styles.gradientOverlay} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.gradientOverlay}>
-          <ScrollView 
-            contentContainerStyle={styles.scrollContainer}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logoCircle}>
@@ -259,25 +333,51 @@ export default function LoginScreen() {
                   {otp.slice(0, 4).map((digit, index) => (
                     <TextInput
                       key={index}
-                      style={styles.otpInput}
+                      ref={(ref) => {
+                        if (ref) {
+                          otpInputRefs.current[index] = ref;
+                        }
+                      }}
+                      style={[
+                        styles.otpInput,
+                        digit !== '' ? styles.otpInputFilled : {},
+                        loading ? styles.otpInputLoading : {}
+                      ]}
                       value={digit}
                       onChangeText={(value) => updateOTP(value, index)}
                       keyboardType="numeric"
                       maxLength={1}
                       textAlign="center"
+                      autoFocus={index === 0}
+                      editable={!loading}
+                      selectTextOnFocus={true}
+                      onKeyPress={({ nativeEvent }) => {
+                        if (nativeEvent.key === 'Backspace' && digit === '' && index > 0) {
+                          otpInputRefs.current[index - 1]?.focus();
+                        }
+                      }}
                     />
                   ))}
                 </View>
 
                 <TouchableOpacity 
-                  style={[styles.verifyButton, { opacity: loading ? 0.7 : 1 }]} 
+                  style={[
+                    styles.verifyButton, 
+                    { opacity: loading ? 0.7 : 1 },
+                    otp.every(digit => digit !== '') ? styles.verifyButtonActive : {}
+                  ]} 
                   onPress={verifyOTP}
                   disabled={loading}
                 >
                   <Text style={styles.buttonText}>
                     {loading ? 'Verifying...' : 'Verify & Continue'}
+                    {otp.every(digit => digit !== '') ? ' ✓' : ''}
                   </Text>
-                  <Ionicons name="checkmark-circle" size={20} color="white" />
+                  <Ionicons 
+                    name={loading ? "time" : "checkmark-circle"} 
+                    size={20} 
+                    color="white" 
+                  />
                 </TouchableOpacity>
 
                 <View style={styles.resendContainer}>
@@ -295,29 +395,38 @@ export default function LoginScreen() {
             )}
           </View>
         </ScrollView>
-        </View>
-      </AnimatedLinearGradient>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#9CA3AF', // Fallback background color
   },
   gradient: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
   },
   gradientOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Very subtle white overlay for better readability
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    zIndex: 2,
   },
   scrollContainer: {
     flexGrow: 1,
     minHeight: '100%',
+    paddingBottom: 20, // Add padding to ensure content is not cut off
   },
   header: {
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 60 : 50, // Account for status bar
     paddingBottom: 30,
     alignItems: 'center',
   },
@@ -451,12 +560,25 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: 'white',
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#e5e7eb',
     fontSize: 18,
     fontWeight: 'bold',
     color: '#374151',
     textAlign: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  otpInputFilled: {
+    borderColor: '#16A34A',
+    backgroundColor: '#f0fdf4',
+  },
+  otpInputLoading: {
+    opacity: 0.7,
+    backgroundColor: '#f9fafb',
   },
   verifyButton: {
     backgroundColor: '#16A34A',
@@ -467,6 +589,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 8,
     marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  verifyButtonActive: {
+    backgroundColor: '#15803D',
+    transform: [{ scale: 1.02 }],
   },
   buttonText: {
     color: 'white',
