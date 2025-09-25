@@ -159,6 +159,8 @@ class ApiService {
         const url = `${this.baseURL}${endpoint}`;
 
         console.log(`🌐 API Request: ${method} ${url}`);
+        console.log(`🔧 Base URL: ${this.baseURL}`);
+        console.log(`🎯 Full URL: ${url}`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -272,8 +274,23 @@ class ApiService {
       // Direct fetch to health endpoint (not under /api path)
       const healthUrl = API_BASE_URL + '/health';
       console.log('🔍 Health check URL:', healthUrl);
-      const response = await fetch(healthUrl);
+      
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning
+          'User-Agent': 'RulerRide-App/1.0.0',
+        },
+      });
+      
+      if (!response.ok) {
+        console.error('Health check HTTP error:', response.status, response.statusText);
+        return false;
+      }
+      
       const data = await response.json();
+      console.log('✅ Health check response:', data);
       return data.status === 'healthy' || data.status === 'OK';
     } catch (error) {
       console.error('Health check failed:', error);

@@ -7,6 +7,7 @@ module.exports = function (api) {
     plugins: [
       // React Native Worklets plugin (for Reanimated 3+)
       'react-native-worklets/plugin',
+      'react-native-reanimated/plugin', // Should be last
     ],
   };
 };

@@ -120,7 +120,7 @@ export default function HelpSupportScreen() {
                 <TouchableOpacity
                   key={itemIndex}
                   style={styles.helpItem}
-                  onPress={() => handleAction(item.action, item.value)}
+                  onPress={() => handleAction(item.action, 'value' in item ? item.value : undefined)}
                 >
                   <View style={styles.helpIcon}>
                     <Ionicons name={item.icon as any} size={24} color="#DC2626" />

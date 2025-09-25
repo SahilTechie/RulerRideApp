@@ -207,39 +207,34 @@ class LocationService {
     }
   }
 
-  // Universal location getter (works on both web and mobile)
+  // Mobile-only location getter
   async getUniversalLocation(): Promise<WebLocationResult> {
-    if (Platform.OS === 'web') {
-      return this.getCurrentLocationWeb();
-    } else {
-      // Use existing mobile location logic
-      try {
-        const location = await this.getCurrentLocation();
-        if (location) {
-          const address = await this.reverseGeocode({
+    try {
+      const location = await this.getCurrentLocation();
+      if (location) {
+        const address = await this.reverseGeocode({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
+        
+        return {
+          coordinates: {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude
-          });
-          
-          return {
-            coordinates: {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude
-            },
-            address: address?.formattedAddress || 'Unknown location',
-            success: true
-          };
-        }
-        
-        throw new Error('Failed to get mobile location');
-      } catch (error) {
-        return {
-          coordinates: { latitude: 17.6868, longitude: 83.2185 },
-          address: 'Visakhapatnam, Andhra Pradesh, India',
-          success: false,
-          error: 'Mobile location failed'
+          },
+          address: address?.formattedAddress || 'Unknown location',
+          success: true
         };
       }
+      
+      throw new Error('Failed to get location');
+    } catch (error) {
+      return {
+        coordinates: { latitude: 17.6868, longitude: 83.2185 },
+        address: 'Visakhapatnam, Andhra Pradesh, India',
+        success: false,
+        error: 'Location access failed'
+      };
     }
   }
 

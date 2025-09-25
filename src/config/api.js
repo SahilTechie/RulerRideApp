@@ -3,22 +3,25 @@ import { Platform } from 'react-native';
 
 /**
  * Get the appropriate API URL based on platform and environment
- * For mobile devices (Android/iOS), use the local network IP
- * For web, use localhost
+ * Supports both local development and public access via ngrok
  */
 const getApiUrl = () => {
-  if (__DEV__) {
-    // Development mode
-    if (Platform.OS === 'web') {
-      // Web platform uses localhost
-      return process.env.EXPO_PUBLIC_API_URL_WEB || 'http://localhost:3001';
-    } else {
-      // Mobile platforms (Android/iOS) use local network IP
-      return process.env.EXPO_PUBLIC_API_URL || 'http://10.67.84.82:3001';
-    }
+  const mode = process.env.EXPO_PUBLIC_MODE || 'local';
+  
+  if (mode === 'public') {
+    // Public mode - use tunnel URL for any network access
+    return process.env.EXPO_PUBLIC_API_URL_PUBLIC || 'https://your-tunnel-url.ngrok.io';
+  } else if (mode === 'hotspot') {
+    // Hotspot mode - use mobile hotspot IP
+    return process.env.EXPO_PUBLIC_API_URL_HOTSPOT || 'http://172.19.247.171:3001';
   } else {
-    // Production mode - you can set this to your production server URL
-    return Constants.expoConfig?.extra?.apiUrl || 'http://10.67.84.82:3001';
+    // Local mode - mobile platforms use local network IP
+    if (__DEV__) {
+      return process.env.EXPO_PUBLIC_API_URL_LOCAL || 'http://10.67.84.82:3001';
+    } else {
+      // Production mode
+      return Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL_PUBLIC;
+    }
   }
 };
 
@@ -26,18 +29,23 @@ const getApiUrl = () => {
  * Get the appropriate Socket URL based on platform and environment
  */
 const getSocketUrl = () => {
-  if (__DEV__) {
-    // Development mode
-    if (Platform.OS === 'web') {
-      // Web platform uses localhost
-      return process.env.EXPO_PUBLIC_SOCKET_URL_WEB || 'http://localhost:3001';
-    } else {
-      // Mobile platforms (Android/iOS) use local network IP
-      return process.env.EXPO_PUBLIC_SOCKET_URL || 'http://10.67.84.82:3001';
-    }
+  const mode = process.env.EXPO_PUBLIC_MODE || 'local';
+  
+  if (mode === 'public') {
+    // Public mode - use tunnel URL for any network access
+    return process.env.EXPO_PUBLIC_SOCKET_URL_PUBLIC || 'https://your-tunnel-url.ngrok.io';
+  } else if (mode === 'hotspot') {
+    // Hotspot mode - use mobile hotspot IP
+    return process.env.EXPO_PUBLIC_SOCKET_URL_HOTSPOT || 'http://172.19.247.171:3001';
   } else {
-    // Production mode - you can set this to your production server URL
-    return Constants.expoConfig?.extra?.socketUrl || 'http://10.67.84.82:3001';
+    // Local mode - platform-specific URLs
+    if (__DEV__) {
+      // Mobile platforms use local network IP
+      return process.env.EXPO_PUBLIC_SOCKET_URL_LOCAL || 'http://10.67.84.82:3001';
+    } else {
+      // Production mode
+      return Constants.expoConfig?.extra?.socketUrl || process.env.EXPO_PUBLIC_SOCKET_URL_PUBLIC;
+    }
   }
 };
 
@@ -49,8 +57,17 @@ export const SOCKET_URL = getSocketUrl();
 if (__DEV__) {
   console.log('🔧 API Configuration:');
   console.log('📱 Platform:', Platform.OS);
+  console.log('🔄 Mode:', process.env.EXPO_PUBLIC_MODE || 'local');
   console.log('🌐 API URL:', API_BASE_URL);
   console.log('🔌 Socket URL:', SOCKET_URL);
+  
+  if (process.env.EXPO_PUBLIC_MODE === 'public') {
+    console.log('🌍 Using PUBLIC mode - accessible from any network via tunnel');
+  } else if (process.env.EXPO_PUBLIC_MODE === 'hotspot') {
+    console.log('📱 Using HOTSPOT mode - accessible via mobile hotspot');
+  } else {
+    console.log('🏠 Using LOCAL mode - same WiFi only');
+  }
 }
 
 // API Endpoints
@@ -99,14 +116,25 @@ export const testConnection = async () => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning
+        'User-Agent': 'RulerRide-App/1.0.0',
       },
-      timeout: 5000,
+      timeout: 10000, // Increased timeout
     });
 
     if (response.ok) {
-      const data = await response.json();
-      console.log('✅ Backend connection successful:', data);
-      return { success: true, data };
+      const text = await response.text();
+      console.log('📄 Raw response:', text.substring(0, 200) + '...');
+      
+      try {
+        const data = JSON.parse(text);
+        console.log('✅ Backend connection successful:', data);
+        return { success: true, data };
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        console.error('Response was not JSON:', text.substring(0, 500));
+        return { success: false, error: 'Invalid JSON response' };
+      }
     } else {
       console.log('❌ Backend connection failed:', response.status);
       return { success: false, error: `HTTP ${response.status}` };

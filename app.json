@@ -8,9 +8,6 @@
     "scheme": "rulerride",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png"
@@ -21,7 +18,24 @@
         "ACCESS_COARSE_LOCATION",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        }
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        }
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show you nearby rides and provide navigation services.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show you nearby rides and provide navigation services."
+      }
     },
     "web": {
       "bundler": "metro",

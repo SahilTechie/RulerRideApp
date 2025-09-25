@@ -20,21 +20,20 @@ const rideRoutes = require('./src/routes/rideRoutes');
 const paymentRoutes = require('./src/routes/paymentRoutes');
 const sosRoutes = require('./src/routes/sosRoutes');
 const userRoutes = require('./src/routes/userRoutes');
+const locationRoutes = require('./src/routes/locationRoutes');
 
 const app = express();
 const server = createServer(app);
 
+// Trust proxy for rate limiting when behind ngrok/reverse proxy
+app.set('trust proxy', true);
+
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGINS?.split(',') || [
-      'http://localhost:3000', 
-      'http://localhost:19006', 
-      'http://localhost:8081',
-      'http://10.67.84.82:8081',
-      'exp://10.67.84.82:8081',
-      'exp://localhost:8081'
-    ],
+    origin: process.env.NODE_ENV === 'production' 
+      ? process.env.CORS_ORIGINS?.split(',') || []
+      : true, // Allow all origins in development/testing
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -71,14 +70,9 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGINS?.split(',') || [
-    'http://localhost:3000', 
-    'http://localhost:19006', 
-    'http://localhost:8081',
-    'http://10.67.84.82:8081',
-    'exp://10.67.84.82:8081',
-    'exp://localhost:8081'
-  ],
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.CORS_ORIGINS?.split(',') || []
+    : true, // Allow all origins in development/testing
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -108,6 +102,7 @@ app.use('/api/rides', rideRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/sos', sosRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/location', locationRoutes);
 
 // Socket.IO connection handling
 socketHandler(io);
@@ -125,12 +120,14 @@ app.use('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0'; // Listen on all interfaces
 
-server.listen(PORT, () => {
-  console.log(`🚗 RulerRide Backend Server is running on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`🚗 RulerRide Backend Server is running on ${HOST}:${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📡 Socket.IO server is ready for real-time connections`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`🌐 Server accessible from any network when tunneled`);
 });
 
 // Graceful shutdown

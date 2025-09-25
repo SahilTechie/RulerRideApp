@@ -1,4 +1,4 @@
-import { Loader } from '@googlemaps/js-api-loader';
+import * as Location from 'expo-location';
 
 export interface PlacePrediction {
   description: string;
@@ -23,8 +23,7 @@ export interface PlaceDetails {
 
 class GooglePlacesService {
   private static instance: GooglePlacesService;
-  private placesService: any = null;
-  private autocompleteService: any = null;
+  private apiKey: string = '';
   private isInitialized: boolean = false;
 
   private constructor() {}
@@ -38,131 +37,133 @@ class GooglePlacesService {
 
   async initialize(apiKey: string): Promise<void> {
     if (this.isInitialized) return;
+    
+    this.apiKey = apiKey;
+    this.isInitialized = true;
+    console.log('Mobile Places Service initialized');
+  }
+
+  async getPlacePredictions(input: string, location?: { lat: number; lng: number }): Promise<PlacePrediction[]> {
+    if (!this.apiKey) {
+      throw new Error('Places service not initialized');
+    }
 
     try {
-      const loader = new Loader({
-        apiKey: apiKey,
-        version: 'weekly',
-        libraries: ['places'],
+      // Use Google Places API Text Search for mobile
+      const baseUrl = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
+      const params = new URLSearchParams({
+        query: input,
+        key: this.apiKey,
       });
 
-      const google = await loader.load();
-      
-      // Create a dummy map element for the PlacesService
-      const mapDiv = document.createElement('div');
-      const map = new google.maps.Map(mapDiv);
-      
-      this.placesService = new google.maps.places.PlacesService(map);
-      this.autocompleteService = new google.maps.places.AutocompleteService();
-      this.isInitialized = true;
-      
-      console.log('Google Places Service initialized');
+      if (location) {
+        params.append('location', `${location.lat},${location.lng}`);
+        params.append('radius', '50000');
+      }
+
+      const response = await fetch(`${baseUrl}?${params}`);
+      const data = await response.json();
+
+      if (data.status === 'OK') {
+        return data.results.slice(0, 5).map((place: any) => ({
+          description: place.formatted_address || place.name,
+          place_id: place.place_id,
+          structured_formatting: {
+            main_text: place.name,
+            secondary_text: place.formatted_address || '',
+          },
+        }));
+      }
+
+      return [];
     } catch (error) {
-      console.error('Error initializing Google Places Service:', error);
+      console.error('Error getting place predictions:', error);
+      return [];
+    }
+  }
+
+  async getPlaceDetails(placeId: string): Promise<PlaceDetails> {
+    if (!this.apiKey) {
+      throw new Error('Places service not initialized');
+    }
+
+    try {
+      const baseUrl = 'https://maps.googleapis.com/maps/api/place/details/json';
+      const params = new URLSearchParams({
+        place_id: placeId,
+        fields: 'place_id,name,formatted_address,geometry',
+        key: this.apiKey,
+      });
+
+      const response = await fetch(`${baseUrl}?${params}`);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.result) {
+        const place = data.result;
+        return {
+          place_id: place.place_id,
+          name: place.name,
+          formatted_address: place.formatted_address,
+          geometry: {
+            location: {
+              lat: place.geometry.location.lat,
+              lng: place.geometry.location.lng,
+            },
+          },
+        };
+      }
+
+      throw new Error('Place details not found');
+    } catch (error) {
+      console.error('Error getting place details:', error);
       throw error;
     }
   }
 
-  async getPlacePredictions(input: string, location?: { lat: number; lng: number }): Promise<PlacePrediction[]> {
-    if (!this.autocompleteService) {
-      throw new Error('Places service not initialized');
-    }
-
-    return new Promise((resolve, reject) => {
-      const request: any = {
-        input: input,
-        types: ['establishment', 'geocode'],
-      };
-
-      // Add location bias if provided
-      if (location) {
-        request.location = new window.google.maps.LatLng(location.lat, location.lng);
-        request.radius = 50000; // 50km radius
+  async geocodeAddress(address: string): Promise<{ lat: number; lng: number; formatted_address: string }> {
+    try {
+      // Use Expo Location's geocoding first (more mobile-friendly)
+      const geocoded = await Location.geocodeAsync(address);
+      
+      if (geocoded.length > 0) {
+        const { latitude, longitude } = geocoded[0];
+        return {
+          lat: latitude,
+          lng: longitude,
+          formatted_address: address, // Use original address as fallback
+        };
       }
 
-      this.autocompleteService.getPlacePredictions(request, (predictions: any, status: any) => {
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          resolve(predictions);
-        } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-          resolve([]);
-        } else {
-          reject(new Error(`Places prediction failed: ${status}`));
-        }
-      });
-    });
-  }
-
-  async getPlaceDetails(placeId: string): Promise<PlaceDetails> {
-    if (!this.placesService) {
-      throw new Error('Places service not initialized');
+      throw new Error('Address not found');
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+      throw error;
     }
-
-    return new Promise((resolve, reject) => {
-      const request = {
-        placeId: placeId,
-        fields: ['place_id', 'name', 'formatted_address', 'geometry'],
-      };
-
-      this.placesService.getDetails(request, (place: any, status: any) => {
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-          resolve({
-            place_id: place.place_id,
-            name: place.name,
-            formatted_address: place.formatted_address,
-            geometry: {
-              location: {
-                lat: place.geometry.location.lat(),
-                lng: place.geometry.location.lng(),
-              },
-            },
-          });
-        } else {
-          reject(new Error(`Place details failed: ${status}`));
-        }
-      });
-    });
-  }
-
-  async geocodeAddress(address: string): Promise<{ lat: number; lng: number; formatted_address: string }> {
-    if (!window.google) {
-      throw new Error('Google Maps not loaded');
-    }
-
-    return new Promise((resolve, reject) => {
-      const geocoder = new window.google.maps.Geocoder();
-      
-      geocoder.geocode({ address: address }, (results: any, status: any) => {
-        if (status === window.google.maps.GeocoderStatus.OK && results[0]) {
-          const location = results[0].geometry.location;
-          resolve({
-            lat: location.lat(),
-            lng: location.lng(),
-            formatted_address: results[0].formatted_address,
-          });
-        } else {
-          reject(new Error(`Geocoding failed: ${status}`));
-        }
-      });
-    });
   }
 
   async reverseGeocode(lat: number, lng: number): Promise<string> {
-    if (!window.google) {
-      throw new Error('Google Maps not loaded');
-    }
-
-    return new Promise((resolve, reject) => {
-      const geocoder = new window.google.maps.Geocoder();
-      const latLng = new window.google.maps.LatLng(lat, lng);
+    try {
+      // Use Expo Location's reverse geocoding
+      const address = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
       
-      geocoder.geocode({ location: latLng }, (results: any, status: any) => {
-        if (status === window.google.maps.GeocoderStatus.OK && results[0]) {
-          resolve(results[0].formatted_address);
-        } else {
-          reject(new Error(`Reverse geocoding failed: ${status}`));
-        }
-      });
-    });
+      if (address.length > 0) {
+        const addr = address[0];
+        const parts = [
+          addr.name,
+          addr.street,
+          addr.city,
+          addr.region,
+          addr.country
+        ].filter(Boolean);
+        
+        return parts.join(', ');
+      }
+
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    } catch (error) {
+      console.error('Error reverse geocoding:', error);
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
   }
 }
 

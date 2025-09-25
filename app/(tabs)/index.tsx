@@ -8,12 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 import LocationService from '../../services/location';
 import RideBookingService from '../../services/booking';
-import MapView from '../../components/MapView'; // Using Leaflet MapView instead of GoogleMaps
-
-// Remove the conditional import since we're using our GoogleMaps component
-// const MapView = Platform.OS !== 'web' ? require('react-native-maps').default : null;
-// const Marker = Platform.OS !== 'web' ? require('react-native-maps').Marker : null;
-// const PROVIDER_GOOGLE = Platform.OS !== 'web' ? require('react-native-maps').PROVIDER_GOOGLE : null;
+import PremiumGoogleMaps from '../../components/PremiumGoogleMaps';
 
 const vehicleTypes = [
   { id: 'bike', name: 'Bike', nameHindi: 'बाइक', icon: 'bicycle', baseFare: 50, perKm: 8, time: '5-8 min' },
@@ -57,24 +52,17 @@ export default function HomeScreen() {
         setUserProfile(JSON.parse(profile));
       }
 
-      // Request location permissions and get location
-      if (Platform.OS === 'web') {
-        // For web, we'll handle location detection in the MapView
+      // Request location permissions and get location (mobile-only)
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
         setLocationPermission(true);
-        getCurrentLocation(); // This will use our web-compatible location service
+        getCurrentLocation();
       } else {
-        // For mobile, use Expo location
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          setLocationPermission(true);
-          getCurrentLocation();
-        } else {
-          Alert.alert(
-            'Location Permission Required',
-            'Please enable location services to book rides and get accurate pickup locations.',
-            [{ text: 'OK' }]
-          );
-        }
+        Alert.alert(
+          'Location Permission Required',
+          'Please enable location services to book rides and get accurate pickup locations.',
+          [{ text: 'OK' }]
+        );
       }
 
       // Initialize socket connection for real-time updates
@@ -94,50 +82,31 @@ export default function HomeScreen() {
 
   const getCurrentLocation = async () => {
     try {
-      if (Platform.OS === 'web') {
-        // Use our enhanced location service for web
-        setIsLoadingLocation(true);
-        const result = await locationServiceInstance.getUniversalLocation();
+      // Use mobile location service
+      setIsLoadingLocation(true);
+      const result = await locationServiceInstance.getUniversalLocation();
+      
+      if (result.success) {
+        // Create a compatible location object
+        const location = {
+          coords: {
+            latitude: result.coordinates.latitude,
+            longitude: result.coordinates.longitude,
+            altitude: null,
+            accuracy: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        };
         
-        if (result.success) {
-          // Create a compatible location object
-          const location = {
-            coords: {
-              latitude: result.coordinates.latitude,
-              longitude: result.coordinates.longitude,
-              altitude: null,
-              accuracy: null,
-              altitudeAccuracy: null,
-              heading: null,
-              speed: null,
-            },
-            timestamp: Date.now(),
-          };
-          
-          setCurrentLocation(location);
-          setPickup(result.address);
-          console.log('✅ Web location detected:', { location: result.coordinates, address: result.address });
-        } else {
-          console.warn('⚠️ Web location detection failed:', result.error);
-          Alert.alert('Location Error', result.error || 'Unable to get your current location. Please enter pickup address manually.');
-        }
-      } else {
-        // Use original Expo location for mobile
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
         setCurrentLocation(location);
-        
-        // Reverse geocode to get address
-        const reverseGeocode = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-        
-        if (reverseGeocode[0]) {
-          const address = `${reverseGeocode[0].name || ''} ${reverseGeocode[0].street || ''}, ${reverseGeocode[0].city || ''}`;
-          setPickup(address.trim());
-        }
+        setPickup(result.address);
+        console.log('✅ Location detected:', { location: result.coordinates, address: result.address });
+      } else {
+        console.warn('⚠️ Location detection failed:', result.error);
+        Alert.alert('Location Error', result.error || 'Unable to get your current location. Please enter pickup address manually.');
       }
     } catch (error) {
       console.error('Error getting location:', error);
@@ -313,7 +282,7 @@ export default function HomeScreen() {
           </View>
         </ImageBackground>
 
-        {/* Live Map View */}
+        {/* Premium Google Maps */}
         <View style={styles.mapContainer}>
           {isLoadingLocation ? (
             <View style={styles.mapPlaceholder}>
@@ -321,33 +290,44 @@ export default function HomeScreen() {
               <Text style={styles.mapText}>Getting your location...</Text>
             </View>
           ) : currentLocation ? (
-            <MapView
-              center={[currentLocation.coords.latitude, currentLocation.coords.longitude]}
-              zoom={15}
-              height={200}
-              width="100%"
-              autoDetectLocation={true}
-              showUserLocation={true}
-              onLocationDetected={handleLocationDetected}
-              onMapClick={handleMapClick}
+            <PremiumGoogleMaps
+              initialRegion={{
+                latitude: currentLocation.coords.latitude,
+                longitude: currentLocation.coords.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
               markers={[
                 {
-                  position: [currentLocation.coords.latitude, currentLocation.coords.longitude],
-                  title: 'Your Location',
-                  popup: 'Current pickup location',
+                  coordinate: {
+                    latitude: currentLocation.coords.latitude,
+                    longitude: currentLocation.coords.longitude,
+                  },
+                  title: 'Pickup Location',
+                  description: pickup || 'Your current location',
+                  type: 'pickup',
                   color: 'green',
                 },
                 // Add destination marker if destination is set
                 ...(destination ? [{
-                  position: [
-                    currentLocation.coords.latitude + 0.01,
-                    currentLocation.coords.longitude + 0.01
-                  ] as [number, number],
+                  coordinate: {
+                    latitude: currentLocation.coords.latitude + 0.01,
+                    longitude: currentLocation.coords.longitude + 0.01,
+                  },
                   title: 'Destination',
-                  popup: destination,
+                  description: destination,
+                  type: 'destination' as const,
                   color: 'red' as const,
                 }] : [])
               ]}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              autoDetectLocation={true}
+              mapStyle="standard"
+              onLocationPress={(coordinate) => {
+                handleMapClick(coordinate.latitude, coordinate.longitude);
+              }}
+              style={{ height: 200 }}
             />
           ) : (
             <View style={styles.mapPlaceholder}>

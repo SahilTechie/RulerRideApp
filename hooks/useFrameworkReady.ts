@@ -1,13 +1,8 @@
 import { useEffect } from 'react';
 
-declare global {
-  interface Window {
-    frameworkReady?: () => void;
-  }
-}
-
 export function useFrameworkReady() {
   useEffect(() => {
-    window.frameworkReady?.();
+    // Mobile framework is ready - no additional setup needed
+    console.log('Mobile framework ready');
   });
 }

@@ -1,8 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView from '../components/MapView';
+import PremiumGoogleMaps from '../components/PremiumGoogleMaps';
 
 export default function MapDemo() {
+  const [showPremiumMaps, setShowPremiumMaps] = useState(false);
+
   const visakhapatnamMarkers = [
     {
       position: [17.6868, 83.2185] as [number, number],
@@ -24,72 +28,232 @@ export default function MapDemo() {
     },
   ];
 
+  const premiumMarkers = [
+    {
+      coordinate: {
+        latitude: 17.6868,
+        longitude: 83.2185,
+      },
+      title: 'RK Beach',
+      description: 'Popular beach destination in Visakhapatnam',
+      type: 'pickup' as const,
+      color: 'green' as const,
+    },
+    {
+      coordinate: {
+        latitude: 17.7231,
+        longitude: 83.3007,
+      },
+      title: 'Kailasagiri',
+      description: 'Hill station with scenic views',
+      type: 'destination' as const,
+      color: 'red' as const,
+    },
+    {
+      coordinate: {
+        latitude: 17.6599,
+        longitude: 83.2489,
+      },
+      title: 'Submarine Museum',
+      description: 'INS Kurusura - Historic submarine museum',
+      type: 'driver' as const,
+      color: 'orange' as const,
+    },
+  ];
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>🗺️ MapView Demo</Text>
-        <Text style={styles.subtitle}>Leaflet + OpenStreetMap Integration</Text>
-      </View>
-
-      {/* Default Map */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Default Map (Visakhapatnam)</Text>
-        <Text style={styles.sectionDescription}>
-          Centered at Visakhapatnam, India with default pickup marker
+        <Text style={styles.title}>🗺️ Map Comparison Demo</Text>
+        <Text style={styles.subtitle}>
+          {showPremiumMaps ? 'Premium Google Maps' : 'Leaflet + OpenStreetMap'}
         </Text>
-        <View style={styles.mapWrapper}>
-          <MapView />
+        
+        {/* Toggle Button */}
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, !showPremiumMaps && styles.activeToggle]}
+            onPress={() => setShowPremiumMaps(false)}
+          >
+            <Text style={[styles.toggleText, !showPremiumMaps && styles.activeToggleText]}>
+              OpenStreetMap
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, showPremiumMaps && styles.activeToggle]}
+            onPress={() => setShowPremiumMaps(true)}
+          >
+            <Text style={[styles.toggleText, showPremiumMaps && styles.activeToggleText]}>
+              Google Maps
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Map with Multiple Markers */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Multiple Markers</Text>
-        <Text style={styles.sectionDescription}>
-          Tourist attractions in Visakhapatnam with different colored markers
-        </Text>
-        <View style={styles.mapWrapper}>
-          <MapView
-            center={[17.6868, 83.2185]}
-            zoom={12}
-            height={250}
-            markers={visakhapatnamMarkers}
-          />
-        </View>
-      </View>
+      {!showPremiumMaps ? (
+        <>
+          {/* OpenStreetMap - Default Map */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Default Map (Visakhapatnam)</Text>
+            <Text style={styles.sectionDescription}>
+              Centered at Visakhapatnam, India with default pickup marker
+            </Text>
+            <View style={styles.mapWrapper}>
+              <MapView />
+            </View>
+          </View>
 
-      {/* Small Map */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Compact Map</Text>
-        <Text style={styles.sectionDescription}>
-          Smaller map perfect for ride booking cards
-        </Text>
-        <View style={styles.mapWrapper}>
-          <MapView
-            center={[17.6868, 83.2185]}
-            zoom={14}
-            height={150}
-            markers={[
-              {
-                position: [17.6868, 83.2185],
-                title: 'Pickup Location',
-                popup: 'Your ride will start here',
-                color: 'red',
-              }
-            ]}
-          />
-        </View>
-      </View>
+          {/* OpenStreetMap - Map with Multiple Markers */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Multiple Markers</Text>
+            <Text style={styles.sectionDescription}>
+              Tourist attractions in Visakhapatnam with different colored markers
+            </Text>
+            <View style={styles.mapWrapper}>
+              <MapView
+                center={[17.6868, 83.2185]}
+                zoom={12}
+                height={250}
+                markers={visakhapatnamMarkers}
+              />
+            </View>
+          </View>
+
+          {/* OpenStreetMap - Small Map */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Compact Map</Text>
+            <Text style={styles.sectionDescription}>
+              Smaller map perfect for ride booking cards
+            </Text>
+            <View style={styles.mapWrapper}>
+              <MapView
+                center={[17.6868, 83.2185]}
+                zoom={14}
+                height={150}
+                markers={[
+                  {
+                    position: [17.6868, 83.2185],
+                    title: 'Pickup Location',
+                    popup: 'Your ride will start here',
+                    color: 'red',
+                  }
+                ]}
+              />
+            </View>
+          </View>
+        </>
+      ) : (
+        <>
+          {/* Premium Google Maps - Default Map */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Premium Google Maps (Visakhapatnam)</Text>
+            <Text style={styles.sectionDescription}>
+              High-quality Google Maps with satellite imagery and street data
+            </Text>
+            <View style={styles.mapWrapper}>
+              <PremiumGoogleMaps
+                initialRegion={{
+                  latitude: 17.6868,
+                  longitude: 83.2185,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+                style={{ height: 200 }}
+                onMarkerPress={(marker) => {
+                  Alert.alert(marker.title, marker.description || 'Map marker');
+                }}
+              />
+            </View>
+          </View>
+
+          {/* Premium Google Maps - Multiple Markers */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Multiple Premium Markers</Text>
+            <Text style={styles.sectionDescription}>
+              Tourist attractions with custom premium markers and info windows
+            </Text>
+            <View style={styles.mapWrapper}>
+              <PremiumGoogleMaps
+                initialRegion={{
+                  latitude: 17.6868,
+                  longitude: 83.2185,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05,
+                }}
+                markers={premiumMarkers}
+                showsUserLocation={false}
+                showsMyLocationButton={true}
+                style={{ height: 250 }}
+                onMarkerPress={(marker) => {
+                  Alert.alert(marker.title, marker.description || 'Premium map marker');
+                }}
+              />
+            </View>
+          </View>
+
+          {/* Premium Google Maps - Dark Theme */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Dark Theme Map</Text>
+            <Text style={styles.sectionDescription}>
+              Premium Google Maps with dark theme styling
+            </Text>
+            <View style={styles.mapWrapper}>
+              <PremiumGoogleMaps
+                initialRegion={{
+                  latitude: 17.6868,
+                  longitude: 83.2185,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+                markers={[premiumMarkers[0]]}
+                mapStyle="dark"
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+                style={{ height: 200 }}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
       <View style={styles.info}>
-        <Text style={styles.infoTitle}>✨ Features</Text>
-        <Text style={styles.infoText}>• No API key required</Text>
-        <Text style={styles.infoText}>• No billing needed</Text>
-        <Text style={styles.infoText}>• OpenStreetMap data</Text>
-        <Text style={styles.infoText}>• Custom colored markers</Text>
-        <Text style={styles.infoText}>• Responsive design</Text>
-        <Text style={styles.infoText}>• Click-to-zoom</Text>
-        <Text style={styles.infoText}>• Popup information</Text>
+        <Text style={styles.infoTitle}>
+          ✨ {showPremiumMaps ? 'Premium Google Maps' : 'OpenStreetMap'} Features
+        </Text>
+        {!showPremiumMaps ? (
+          <>
+            <Text style={styles.infoText}>• No API key required</Text>
+            <Text style={styles.infoText}>• No billing needed</Text>
+            <Text style={styles.infoText}>• OpenStreetMap data</Text>
+            <Text style={styles.infoText}>• Custom colored markers</Text>
+            <Text style={styles.infoText}>• Responsive design</Text>
+            <Text style={styles.infoText}>• Click-to-zoom</Text>
+            <Text style={styles.infoText}>• Popup information</Text>
+            <Text style={styles.infoText}>• Works offline-friendly</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.infoText}>• High-quality satellite imagery</Text>
+            <Text style={styles.infoText}>• Real-time traffic data</Text>
+            <Text style={styles.infoText}>• Street View integration</Text>
+            <Text style={styles.infoText}>• Premium custom markers</Text>
+            <Text style={styles.infoText}>• Interactive info windows</Text>
+            <Text style={styles.infoText}>• Multiple map themes</Text>
+            <Text style={styles.infoText}>• Precise location services</Text>
+            <Text style={styles.infoText}>• Professional map styling</Text>
+          </>
+        )}
+        
+        {showPremiumMaps && (
+          <View style={styles.apiKeyNote}>
+            <Ionicons name="information-circle" size={16} color="#2563EB" />
+            <Text style={styles.apiKeyNoteText}>
+              Requires Google Maps API key with proper billing setup
+            </Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -160,5 +324,46 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 4,
     paddingLeft: 8,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 25,
+    padding: 4,
+    marginTop: 16,
+  },
+  toggleBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  activeToggle: {
+    backgroundColor: 'white',
+  },
+  toggleText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+  },
+  activeToggleText: {
+    color: '#DC2626',
+    fontWeight: 'bold',
+  },
+  apiKeyNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  apiKeyNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#2563EB',
+    lineHeight: 16,
   },
 });

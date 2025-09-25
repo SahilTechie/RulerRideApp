@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface MapPlaceholderProps {
@@ -26,7 +26,7 @@ const MapPlaceholder: React.FC<MapPlaceholderProps> = ({ onEnableBilling }) => {
 
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => window.open('https://console.cloud.google.com/billing', '_blank')}
+          onPress={() => Linking.openURL('https://console.cloud.google.com/billing')}
         >
           <Text style={styles.buttonText}>Open Google Cloud Console</Text>
           <Ionicons name="open-outline" size={16} color="white" />
