@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform, ImageBackground, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,10 +9,13 @@ import { io } from 'socket.io-client';
 import LocationService from '../../services/location';
 import RideBookingService from '../../services/booking';
 import PremiumGoogleMaps from '../../components/PremiumGoogleMaps';
+import ImageSlideshow from '../../components/ImageSlideshow';
+import GooglePlacesService from '../../services/googlePlaces';
+import GoogleDirectionsService from '../../services/googleDirections';
 
 const vehicleTypes = [
-  { id: 'bike', name: 'Bike', nameHindi: 'बाइक', icon: 'bicycle', baseFare: 50, perKm: 8, time: '5-8 min' },
-  { id: 'auto', name: 'Auto', nameHindi: 'ऑटो', icon: 'car', baseFare: 80, perKm: 12, time: '7-12 min' },
+  { id: 'bike', name: 'Bike', nameHindi: 'बाइक', icon: require('../../assets/images/man.png'), iconType: 'image', baseFare: 50, perKm: 8, time: '5-8 min' },
+  { id: 'auto', name: 'Auto', nameHindi: 'ऑटो', icon: require('../../assets/images/rickshaw.png'), iconType: 'image', baseFare: 80, perKm: 12, time: '7-12 min' },
 ];
 
 // Mock fare calculation based on distance
@@ -38,11 +41,101 @@ export default function HomeScreen() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [socket, setSocket] = useState<any>(null);
   const [locationServiceInstance] = useState(() => LocationService.getInstance());
+  const [destinationCoordinates, setDestinationCoordinates] = useState<{latitude: number, longitude: number} | null>(null);
+  const [isGeocodingDestination, setIsGeocodingDestination] = useState(false);
+  const [routeData, setRouteData] = useState<{
+    polylineCoordinates: {latitude: number, longitude: number}[];
+    distance: number;
+    duration: number;
+    distanceText: string;
+    durationText: string;
+  } | null>(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [nearbyVehicles, setNearbyVehicles] = useState<{
+    id: string;
+    type: 'bike' | 'auto';
+    coordinate: {
+      latitude: number;
+      longitude: number;
+    };
+    driverName: string;
+    rating: number;
+  }[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     initializeApp();
   }, []);
+
+  // Get real route when destination coordinates change
+  useEffect(() => {
+    if (currentLocation && destinationCoordinates) {
+      getRealRoute();
+    } else {
+      setRouteData(null);
+    }
+  }, [currentLocation, destinationCoordinates]);
+
+  // Update nearby vehicles when location changes
+  useEffect(() => {
+    if (currentLocation) {
+      updateNearbyVehicles();
+    }
+  }, [currentLocation]);
+
+  // Simulate vehicle movement when vehicle type is switched
+  useEffect(() => {
+    if (currentLocation && nearbyVehicles.length > 0) {
+      simulateVehicleMovement();
+    }
+  }, [selectedVehicle]);
+
+  const getRealRoute = async () => {
+    if (!currentLocation || !destinationCoordinates) return;
+
+    setIsLoadingRoute(true);
+    try {
+      const directionsService = GoogleDirectionsService.getInstance();
+      
+      const route = await directionsService.getDirections(
+        {
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        },
+        destinationCoordinates,
+        'driving'
+      );
+
+      if (route) {
+        setRouteData(route);
+        setEstimatedDistance(route.distance);
+        console.log('�️ Real route calculated:', {
+          distance: route.distanceText,
+          duration: route.durationText,
+          points: route.polylineCoordinates.length
+        });
+      } else {
+        // Fallback to straight line calculation
+        const distance = locationServiceInstance.calculateDistance(
+          { latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude },
+          destinationCoordinates
+        );
+        setEstimatedDistance(distance);
+        setRouteData(null);
+      }
+    } catch (error) {
+      console.error('Error getting real route:', error);
+      // Fallback to straight line
+      const distance = locationServiceInstance.calculateDistance(
+        { latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude },
+        destinationCoordinates
+      );
+      setEstimatedDistance(distance);
+      setRouteData(null);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  };
 
   const initializeApp = async () => {
     try {
@@ -50,6 +143,16 @@ export default function HomeScreen() {
       const profile = await AsyncStorage.getItem('userProfile');
       if (profile) {
         setUserProfile(JSON.parse(profile));
+      }
+
+      // Initialize Google Places service with API key
+      const googleApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (googleApiKey) {
+        const placesService = GooglePlacesService.getInstance();
+        await placesService.initialize(googleApiKey);
+        console.log('✅ Google Places service initialized');
+      } else {
+        console.error('❌ Google Maps API key not found in environment variables');
       }
 
       // Request location permissions and get location (mobile-only)
@@ -172,6 +275,86 @@ export default function HomeScreen() {
     }
   };
 
+  // Calculate map region to fit both pickup and destination
+  const getMapRegion = () => {
+    if (!currentLocation) return null;
+
+    const pickupLat = currentLocation.coords.latitude;
+    const pickupLng = currentLocation.coords.longitude;
+
+    if (!destinationCoordinates) {
+      // Show only pickup location
+      return {
+        latitude: pickupLat,
+        longitude: pickupLng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+    }
+
+    // Calculate region to show both pickup and destination
+    const destLat = destinationCoordinates.latitude;
+    const destLng = destinationCoordinates.longitude;
+
+    const minLat = Math.min(pickupLat, destLat);
+    const maxLat = Math.max(pickupLat, destLat);
+    const minLng = Math.min(pickupLng, destLng);
+    const maxLng = Math.max(pickupLng, destLng);
+
+    const latDelta = Math.max(maxLat - minLat, 0.005) * 1.3; // Add 30% padding
+    const lngDelta = Math.max(maxLng - minLng, 0.005) * 1.3; // Add 30% padding
+
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta: latDelta,
+      longitudeDelta: lngDelta,
+    };
+  };
+
+  // Handle destination input and geocoding
+  const handleDestinationChange = async (text: string) => {
+    setDestination(text);
+    
+    if (text.trim().length > 3) {
+      setIsGeocodingDestination(true);
+      try {
+        const placesService = GooglePlacesService.getInstance();
+        
+        // Check if the service is initialized
+        if (!placesService) {
+          throw new Error('Places service not available');
+        }
+        
+        const geocoded = await placesService.geocodeAddress(text.trim());
+        
+        setDestinationCoordinates({
+          latitude: geocoded.lat,
+          longitude: geocoded.lng
+        });
+        
+        console.log('📍 Destination geocoded:', { address: text, coordinates: geocoded });
+      } catch (error) {
+        console.warn('⚠️ Failed to geocode destination:', error);
+        setDestinationCoordinates(null);
+        
+        // Show user-friendly error message for common issues
+        if (error instanceof Error) {
+          if (error.message.includes('Address not found')) {
+            // Don't show alert for every failed geocoding attempt, just log it
+            console.info('💡 Tip: Try entering a more specific address');
+          } else if (error.message.includes('not initialized')) {
+            console.error('🔧 Google Places service needs to be initialized');
+          }
+        }
+      } finally {
+        setIsGeocodingDestination(false);
+      }
+    } else {
+      setDestinationCoordinates(null);
+    }
+  };
+
   const bookRide = async () => {
     if (!pickup || !destination) {
       Alert.alert('Missing Information', 'Please enter both pickup and destination locations.');
@@ -189,19 +372,17 @@ export default function HomeScreen() {
       
       // Get coordinates for pickup and destination
       let pickupCoords = currentLocation?.coords;
-      let destinationCoords;
+      let destinationCoords = destinationCoordinates;
 
       if (!pickupCoords) {
         Alert.alert('Location Error', 'Unable to get your current location.');
         return;
       }
 
-      // For demo purposes, we'll simulate destination coordinates
-      // In a real app, you'd use Google Places API or geocoding
-      destinationCoords = {
-        latitude: pickupCoords.latitude + 0.01,
-        longitude: pickupCoords.longitude + 0.01,
-      };
+      if (!destinationCoords) {
+        Alert.alert('Destination Error', 'Please wait for destination location to be found or try entering a more specific address.');
+        return;
+      }
 
       // Calculate distance and fare
       const distance = locationServiceInstance.calculateDistance(
@@ -257,17 +438,115 @@ export default function HomeScreen() {
     }
   };
 
+  // Generate nearby vehicles based on current location (both bikes and autos)
+  const generateNearbyVehicles = (location: Location.LocationObject) => {
+    const vehicles = [];
+    const bikeDriverNames = [
+      'Raj Kumar', 'Amit Singh', 'Suresh Babu', 'Ravi Sharma', 'Krishna Das',
+      'Mohan Lal', 'Ramesh Kumar', 'Vijay Singh', 'Santosh Kumar', 'Prakash Jha'
+    ];
+    const autoDriverNames = [
+      'Abdul Rahman', 'Sunil Yadav', 'Raman Gupta', 'Deepak Kumar', 'Ashok Singh',
+      'Mahesh Babu', 'Ganesh Prasad', 'Sanjay Kumar', 'Vinod Singh', 'Rajesh Kumar'
+    ];
+    
+    // Generate 10 bikes
+    for (let i = 0; i < 10; i++) {
+      // Generate random coordinates within 1-2km radius of current location
+      const minRadiusInDegrees = 0.009; // Approximately 1km
+      const maxRadiusInDegrees = 0.018; // Approximately 2km
+      const randomAngle = Math.random() * 2 * Math.PI;
+      const randomRadius = minRadiusInDegrees + (Math.random() * (maxRadiusInDegrees - minRadiusInDegrees));
+      
+      const lat = location.coords.latitude + (randomRadius * Math.cos(randomAngle));
+      const lng = location.coords.longitude + (randomRadius * Math.sin(randomAngle));
+      
+      vehicles.push({
+        id: `bike_${i + 1}`,
+        type: 'bike' as const,
+        coordinate: {
+          latitude: lat,
+          longitude: lng,
+        },
+        driverName: bikeDriverNames[i],
+        rating: Math.round((Math.random() * 2 + 3) * 10) / 10, // Rating between 3.0 and 5.0
+      });
+    }
+    
+    // Generate 10 autos
+    for (let i = 0; i < 10; i++) {
+      // Generate random coordinates within 1-2km radius of current location
+      const minRadiusInDegrees = 0.009; // Approximately 1km
+      const maxRadiusInDegrees = 0.018; // Approximately 2km
+      const randomAngle = Math.random() * 2 * Math.PI;
+      const randomRadius = minRadiusInDegrees + (Math.random() * (maxRadiusInDegrees - minRadiusInDegrees));
+      
+      const lat = location.coords.latitude + (randomRadius * Math.cos(randomAngle));
+      const lng = location.coords.longitude + (randomRadius * Math.sin(randomAngle));
+      
+      vehicles.push({
+        id: `auto_${i + 1}`,
+        type: 'auto' as const,
+        coordinate: {
+          latitude: lat,
+          longitude: lng,
+        },
+        driverName: autoDriverNames[i],
+        rating: Math.round((Math.random() * 2 + 3) * 10) / 10, // Rating between 3.0 and 5.0
+      });
+    }
+    
+    return vehicles;
+  };
+
+  // Update nearby vehicles when location changes
+  const updateNearbyVehicles = () => {
+    if (currentLocation) {
+      const allVehicles = generateNearbyVehicles(currentLocation);
+      setNearbyVehicles(allVehicles);
+    }
+  };
+
+  // Simulate vehicle movement by updating positions of selected vehicle type
+  const simulateVehicleMovement = () => {
+    if (!currentLocation) return;
+
+    setNearbyVehicles(prevVehicles => {
+      return prevVehicles.map(vehicle => {
+        // Only move vehicles of the currently selected type
+        if (vehicle.type === selectedVehicle) {
+          // Generate new random position within 1-2km radius
+          const minRadiusInDegrees = 0.009; // Approximately 1km
+          const maxRadiusInDegrees = 0.018; // Approximately 2km
+          const randomAngle = Math.random() * 2 * Math.PI;
+          const randomRadius = minRadiusInDegrees + (Math.random() * (maxRadiusInDegrees - minRadiusInDegrees));
+          
+          const lat = currentLocation.coords.latitude + (randomRadius * Math.cos(randomAngle));
+          const lng = currentLocation.coords.longitude + (randomRadius * Math.sin(randomAngle));
+          
+          return {
+            ...vehicle,
+            coordinate: {
+              latitude: lat,
+              longitude: lng,
+            },
+          };
+        }
+        // Keep other vehicle types in their current positions
+        return vehicle;
+      });
+    });
+  };
+
   const fareEstimate = calculateFare(estimatedDistance, selectedVehicle);
   const greeting = new Date().getHours() < 12 ? 'Good Morning!' : new Date().getHours() < 18 ? 'Good Afternoon!' : 'Good Evening!';
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header section that scrolls with content */}
-        <ImageBackground 
-          source={require('@/assets/images/dashimg.jpg')} 
+        {/* Header section with slideshow */}
+        <ImageSlideshow 
           style={styles.header}
-          resizeMode="stretch"
           imageStyle={styles.headerImage}
         >
           <View style={styles.headerOverlay}>
@@ -280,7 +559,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-        </ImageBackground>
+        </ImageSlideshow>
 
         {/* Premium Google Maps */}
         <View style={styles.mapContainer}>
@@ -291,12 +570,7 @@ export default function HomeScreen() {
             </View>
           ) : currentLocation ? (
             <PremiumGoogleMaps
-              initialRegion={{
-                latitude: currentLocation.coords.latitude,
-                longitude: currentLocation.coords.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
+              initialRegion={getMapRegion()!}
               markers={[
                 {
                   coordinate: {
@@ -308,18 +582,45 @@ export default function HomeScreen() {
                   type: 'pickup',
                   color: 'green',
                 },
-                // Add destination marker if destination is set
-                ...(destination ? [{
+                // Add destination marker if destination coordinates are available
+                ...(destinationCoordinates ? [{
                   coordinate: {
-                    latitude: currentLocation.coords.latitude + 0.01,
-                    longitude: currentLocation.coords.longitude + 0.01,
+                    latitude: destinationCoordinates.latitude,
+                    longitude: destinationCoordinates.longitude,
                   },
                   title: 'Destination',
                   description: destination,
                   type: 'destination' as const,
                   color: 'red' as const,
-                }] : [])
+                }] : []),
+                // Add nearby vehicles of selected type only
+                ...nearbyVehicles
+                  .filter(vehicle => vehicle.type === selectedVehicle)
+                  .map(vehicle => ({
+                    coordinate: vehicle.coordinate,
+                    title: `${vehicle.type === 'bike' ? 'Bike' : 'Auto'} - ${vehicle.driverName}`,
+                    description: `Rating: ${vehicle.rating} ⭐`,
+                    type: 'driver' as const,
+                    color: 'blue' as const,
+                    vehicleType: vehicle.type,
+                    vehicleId: vehicle.id,
+                  }))
               ]}
+              polylineCoordinates={routeData?.polylineCoordinates || (destinationCoordinates ? [
+                {
+                  latitude: currentLocation.coords.latitude,
+                  longitude: currentLocation.coords.longitude,
+                },
+                {
+                  latitude: destinationCoordinates.latitude,
+                  longitude: destinationCoordinates.longitude,
+                }
+              ] : [])}
+              routeDistance={routeData?.distance || estimatedDistance}
+              routeDuration={routeData?.duration}
+              routeDistanceText={routeData?.distanceText}
+              routeDurationText={routeData?.durationText}
+              showDistanceOverlay={true}
               showsUserLocation={true}
               showsMyLocationButton={true}
               autoDetectLocation={true}
@@ -327,7 +628,7 @@ export default function HomeScreen() {
               onLocationPress={(coordinate) => {
                 handleMapClick(coordinate.latitude, coordinate.longitude);
               }}
-              style={{ height: 200 }}
+              style={{ height: 280 }}
             />
           ) : (
             <View style={styles.mapPlaceholder}>
@@ -366,9 +667,13 @@ export default function HomeScreen() {
               style={styles.locationInput}
               placeholder="Where to? / कहाँ जाना है?"
               value={destination}
-              onChangeText={setDestination}
+              onChangeText={handleDestinationChange}
             />
-            <Ionicons name="search" size={20} color="#64748B" />
+            {isGeocodingDestination || isLoadingRoute ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <Ionicons name="search" size={20} color="#64748B" />
+            )}
           </View>
         </View>
 
@@ -387,11 +692,21 @@ export default function HomeScreen() {
                   ]}
                   onPress={() => setSelectedVehicle(vehicle.id)}
                 >
-                  <Ionicons
-                    name={vehicle.icon as any}
-                    size={32}
-                    color={selectedVehicle === vehicle.id ? '#DC2626' : '#64748B'}
-                  />
+                  {vehicle.iconType === 'image' ? (
+                    <Image
+                      source={vehicle.icon}
+                      style={[
+                        styles.vehicleImage,
+                        { tintColor: selectedVehicle === vehicle.id ? '#DC2626' : '#64748B' }
+                      ]}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={vehicle.icon as any}
+                      size={32}
+                      color={selectedVehicle === vehicle.id ? '#DC2626' : '#64748B'}
+                    />
+                  )}
                   <Text style={[
                     styles.vehicleName,
                     selectedVehicle === vehicle.id && styles.selectedVehicleText,
@@ -399,13 +714,6 @@ export default function HomeScreen() {
                     {vehicle.name}
                   </Text>
                   <Text style={styles.vehicleNameHindi}>{vehicle.nameHindi}</Text>
-                  <Text style={[
-                    styles.vehicleFare,
-                    selectedVehicle === vehicle.id && styles.selectedVehicleText,
-                  ]}>
-                    ₹{vehicleFare.min}-{vehicleFare.max}
-                  </Text>
-                  <Text style={styles.vehicleTime}>{vehicle.time}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -416,7 +724,7 @@ export default function HomeScreen() {
         <View style={styles.fareContainer}>
           <View style={styles.fareHeader}>
             <Text style={styles.fareTitle}>Estimated Fare / अनुमानित किराया</Text>
-            <Text style={styles.distanceText}>{estimatedDistance} km</Text>
+            <Text style={styles.distanceText}>{estimatedDistance.toFixed(2)} km</Text>
           </View>
           <Text style={styles.fareAmount}>₹{fareEstimate.min} - ₹{fareEstimate.max}</Text>
           <Text style={styles.fareNote}>*Final fare may vary based on actual distance and time</Text>
@@ -509,10 +817,15 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     marginVertical: 20,
-    marginHorizontal: 20,
-    height: 200,
-    borderRadius: 12,
+    marginHorizontal: 15,
+    height: 220,
+    borderRadius: 15,
     overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
   map: {
     flex: 1,
@@ -520,7 +833,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   mapPlaceholder: {
-    height: 200,
+    height: 250,
     backgroundColor: '#E5E7EB',
     borderRadius: 12,
     justifyContent: 'center',
@@ -548,6 +861,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
+    marginHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -584,6 +898,7 @@ const styles = StyleSheet.create({
   },
   vehicleSection: {
     marginBottom: 20,
+    marginHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 18,
@@ -599,7 +914,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -627,6 +942,11 @@ const styles = StyleSheet.create({
   selectedVehicleText: {
     color: '#DC2626',
   },
+  vehicleImage: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain',
+  },
   vehicleFare: {
     fontSize: 14,
     fontWeight: '600',
@@ -641,6 +961,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
+    marginHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -678,6 +999,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 20,
+    marginHorizontal: 20,
   },
   quickActionBtn: {
     backgroundColor: 'white',
@@ -702,22 +1024,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 12,
-    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 8,
     marginBottom: 20,
+    marginHorizontal: 30,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
   disabledButton: {
     backgroundColor: '#9CA3AF',
   },
   bookButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   safetyNote: {
@@ -727,6 +1051,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 20,
+    marginHorizontal: 20,
     gap: 8,
   },
   safetyText: {

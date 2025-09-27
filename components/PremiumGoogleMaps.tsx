@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { View, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 interface Coordinate {
@@ -14,6 +14,8 @@ interface MapMarker {
   description?: string;
   color?: 'red' | 'green' | 'blue' | 'orange';
   type?: 'pickup' | 'destination' | 'user' | 'driver';
+  vehicleType?: 'bike' | 'auto';
+  vehicleId?: string;
 }
 
 interface PremiumGoogleMapsProps {
@@ -32,6 +34,12 @@ interface PremiumGoogleMapsProps {
   onLocationPress?: (coordinate: Coordinate) => void;
   autoDetectLocation?: boolean;
   mapStyle?: 'standard' | 'dark' | 'retro' | 'satellite';
+  polylineCoordinates?: Coordinate[];
+  routeDistance?: number;
+  routeDuration?: number;
+  routeDistanceText?: string;
+  routeDurationText?: string;
+  showDistanceOverlay?: boolean;
 }
 
 // Custom map styles for clean UI
@@ -109,6 +117,12 @@ const PremiumGoogleMaps: React.FC<PremiumGoogleMapsProps> = ({
   onLocationPress,
   autoDetectLocation = false,
   mapStyle = 'standard',
+  polylineCoordinates = [],
+  routeDistance,
+  routeDuration,
+  routeDistanceText,
+  routeDurationText,
+  showDistanceOverlay = true,
 }) => {
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
 
@@ -165,10 +179,52 @@ const PremiumGoogleMaps: React.FC<PremiumGoogleMapsProps> = ({
             title={marker.title}
             description={marker.description}
             onPress={() => onMarkerPress?.(marker)}
-            pinColor={marker.color}
-          />
+            pinColor={marker.vehicleType ? undefined : marker.color}
+          >
+            {marker.vehicleType && (
+              <View style={styles.customMarker}>
+                <Image
+                  source={
+                    marker.vehicleType === 'bike'
+                      ? require('../assets/images/man.png')
+                      : require('../assets/images/rickshaw.png')
+                  }
+                  style={styles.vehicleMarkerImage}
+                />
+              </View>
+            )}
+          </Marker>
         ))}
+        
+        {/* Route polyline - simple white line with border */}
+        {polylineCoordinates.length >= 2 && (
+          <>
+            {/* Border for visibility */}
+            <Polyline
+              coordinates={polylineCoordinates}
+              strokeWidth={5}
+              strokeColor="rgba(0, 0, 0, 0.3)"
+              lineDashPattern={[0]}
+            />
+            {/* Main white route line */}
+            <Polyline
+              coordinates={polylineCoordinates}
+              strokeWidth={3}
+              strokeColor="#FFFFFF"
+              lineDashPattern={[0]}
+            />
+          </>
+        )}
       </MapView>
+
+      {/* Simple distance display */}
+      {showDistanceOverlay && (routeDistance || routeDistanceText) && polylineCoordinates.length >= 2 && (
+        <View style={styles.distanceOverlay}>
+          <Text style={styles.distanceText}>
+            {routeDistanceText || `${routeDistance?.toFixed(1)} km`}
+          </Text>
+        </View>
+      )}
 
       {showsMyLocationButton && (
         <TouchableOpacity 
@@ -194,6 +250,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  distanceOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    textAlign: 'center',
+  },
   locationButton: {
     position: 'absolute',
     bottom: 20,
@@ -214,6 +290,26 @@ const styles = StyleSheet.create({
   },
   locationButtonText: {
     fontSize: 20,
+  },
+  customMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#404040',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  vehicleMarkerImage: {
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
   },
 });
 

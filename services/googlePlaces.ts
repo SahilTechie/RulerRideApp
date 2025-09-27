@@ -121,6 +121,10 @@ class GooglePlacesService {
   }
 
   async geocodeAddress(address: string): Promise<{ lat: number; lng: number; formatted_address: string }> {
+    if (!address || address.trim().length === 0) {
+      throw new Error('Address is required');
+    }
+
     try {
       // Use Expo Location's geocoding first (more mobile-friendly)
       const geocoded = await Location.geocodeAsync(address);
@@ -134,10 +138,36 @@ class GooglePlacesService {
         };
       }
 
+      // If Expo geocoding fails, try Google Geocoding API as fallback
+      if (this.apiKey) {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${this.apiKey}`
+        );
+        const data = await response.json();
+        
+        if (data.status === 'OK' && data.results.length > 0) {
+          const result = data.results[0];
+          return {
+            lat: result.geometry.location.lat,
+            lng: result.geometry.location.lng,
+            formatted_address: result.formatted_address,
+          };
+        }
+      }
+
       throw new Error('Address not found');
     } catch (error) {
       console.error('Error geocoding address:', error);
-      throw error;
+      
+      // Re-throw with more specific error message
+      if (error instanceof Error) {
+        if (error.message.includes('Network request failed')) {
+          throw new Error('Network error - please check your internet connection');
+        }
+        throw error;
+      }
+      
+      throw new Error('Failed to geocode address');
     }
   }
 
