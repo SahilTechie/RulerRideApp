@@ -78,23 +78,6 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Rides</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>₹0</Text>
-            <Text style={styles.statLabel}>Saved</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>New</Text>
-            <Text style={styles.statLabel}>Member</Text>
-          </View>
-        </View>
-
         <View style={styles.welcomeContainer}>
           <View style={styles.welcomeHeader}>
             <Ionicons name="hand-right" size={24} color="#DC2626" />
@@ -202,41 +185,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginVertical: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#DC2626',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 16,
-  },
   welcomeContainer: {
     backgroundColor: '#FEF3C7',
     borderRadius: 12,
     padding: 16,
+    marginTop: 20,
     marginBottom: 20,
     borderLeftWidth: 4,
     borderLeftColor: '#F59E0B',

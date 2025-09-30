@@ -19,32 +19,39 @@ const images = [
 
 export default function ImageSlideshow({ style, imageStyle, children }: ImageSlideshowProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [nextImageIndex, setNextImageIndex] = useState(1);
+  
+  // Two animated values for crossfade effect
+  const currentImageOpacity = useRef(new Animated.Value(1)).current;
+  const nextImageOpacity = useRef(new Animated.Value(0)).current;
   const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
-      // Start fade out animation
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 500, // 0.5 second fade out
-        useNativeDriver: true,
-      }).start(() => {
-        // Change image after fade out completes
-        setCurrentImageIndex((prevIndex) => {
-          const nextIndex = (prevIndex + 1) % images.length;
-          console.log(`Slideshow: transitioning from image ${prevIndex + 1} to image ${nextIndex + 1}`);
-          return nextIndex;
-        });
-        
-        // Start fade in animation
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 500, // 0.5 second fade in
+      // Start crossfade animation
+      Animated.parallel([
+        Animated.timing(currentImageOpacity, {
+          toValue: 0,
+          duration: 800, // Smooth 0.8 second crossfade
           useNativeDriver: true,
-        }).start();
+        }),
+        Animated.timing(nextImageOpacity, {
+          toValue: 1,
+          duration: 800, // Smooth 0.8 second crossfade
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Swap the images and reset opacity values
+        setCurrentImageIndex(nextImageIndex);
+        setNextImageIndex((nextImageIndex + 1) % images.length);
+        
+        // Reset opacity values for next transition
+        currentImageOpacity.setValue(1);
+        nextImageOpacity.setValue(0);
+        
+        console.log(`Slideshow: smooth transition to image ${nextImageIndex + 1}`);
       });
-    }, 5000); // Change image every 5 seconds
+    }, 4000); // Change image every 4 seconds
 
     // Cleanup function to clear interval
     return () => {
@@ -53,21 +60,36 @@ export default function ImageSlideshow({ style, imageStyle, children }: ImageSli
         intervalRef.current = null;
       }
     };
-  }, [fadeAnim]);
+  }, [nextImageIndex, currentImageOpacity, nextImageOpacity]);
 
   return (
     <View style={[styles.container, style]}>
+      {/* Current Image */}
       <Animated.Image
         source={images[currentImageIndex]}
         style={[
           styles.image,
           imageStyle,
           {
-            opacity: fadeAnim,
+            opacity: currentImageOpacity,
           },
         ]}
         resizeMode="stretch"
       />
+      
+      {/* Next Image (for crossfade) */}
+      <Animated.Image
+        source={images[nextImageIndex]}
+        style={[
+          styles.image,
+          imageStyle,
+          {
+            opacity: nextImageOpacity,
+          },
+        ]}
+        resizeMode="stretch"
+      />
+      
       {children && (
         <View style={styles.overlay}>
           {children}

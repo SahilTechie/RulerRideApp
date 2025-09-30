@@ -774,12 +774,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    height: 180, // Increased height for better image display
+    height: 220, // Increased height for better image display
     width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 15,
   },
   headerImage: {
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
+    // Removed border radius for flat bottom edges
   },
   headerOverlay: {
     backgroundColor: 'rgba(0, 0, 0, 0.3)', // Lighter overlay for better image visibility
@@ -788,6 +792,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     height: '100%',
     justifyContent: 'center',
+    // Add subtle gradient effect for 3D depth
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   headerContent: {
     flexDirection: 'row',
