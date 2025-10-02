@@ -1,21 +1,97 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthService } from '@/services/auth';
 
 export default function EditProfileScreen() {
   const [name, setName] = useState('');
-  const [nameHindi, setNameHindi] = useState('');
-  const [phone, setPhone] = useState('9876543210');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const saveProfile = () => {
-    Alert.alert('Success', 'Profile updated successfully!');
-    router.back();
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // Get phone number from AsyncStorage
+      const storedPhone = await AsyncStorage.getItem('user_phone');
+      if (storedPhone) {
+        // Remove +91 prefix for display in input field
+        const phoneWithoutPrefix = storedPhone.replace('+91', '');
+        setPhone(phoneWithoutPrefix);
+      }
+
+      // Get user name from AsyncStorage
+      const storedName = await AsyncStorage.getItem('user_name');
+      if (storedName && storedName !== 'RulerRide User') {
+        setName(storedName);
+      }
+
+      // Try to get user data from auth service
+      const currentUser = await AuthService.getCurrentUser();
+      if (currentUser) {
+        if (currentUser.name && currentUser.name !== 'New User') {
+          setName(currentUser.name);
+        }
+        if (currentUser.phone) {
+          const phoneWithoutPrefix = currentUser.phone.replace('+91', '');
+          setPhone(phoneWithoutPrefix);
+        }
+        if (currentUser.email) {
+          setEmail(currentUser.email);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      Alert.alert('Error', 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // Store names in AsyncStorage
+      if (name.trim()) {
+        await AsyncStorage.setItem('user_name', name.trim());
+      }
+      
+      // Update user profile with new data
+      const updates: Partial<{name: string, email: string, phone: string}> = {};
+      
+      if (name) updates.name = name;
+      if (email) updates.email = email;
+      if (phone) updates.phone = `+91${phone}`;
+
+      if (Object.keys(updates).length > 0) {
+        await AuthService.updateRiderProfile(updates);
+        
+        // Update phone in AsyncStorage if changed
+        if (updates.phone) {
+          await AsyncStorage.setItem('user_phone', updates.phone);
+        }
+      }
+
+      Alert.alert('Success', 'Profile updated successfully!');
+      router.back();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -29,15 +105,22 @@ export default function EditProfileScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={48} color="white" />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#DC2626" />
+            <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
-          <TouchableOpacity style={styles.changePhotoButton}>
-            <Ionicons name="camera" size={20} color="#DC2626" />
-            <Text style={styles.changePhotoText}>Change Photo</Text>
-          </TouchableOpacity>
-        </View>
+        ) : (
+          <>
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarContainer}>
+                <Ionicons name="person" size={48} color="white" />
+              </View>
+              <TouchableOpacity style={styles.changePhotoButton}>
+                <Ionicons name="camera" size={20} color="#DC2626" />
+                <Text style={styles.changePhotoText}>Change Photo</Text>
+              </TouchableOpacity>
+            </View>
 
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
@@ -47,16 +130,6 @@ export default function EditProfileScreen() {
               value={name}
               onChangeText={setName}
               placeholder="Enter your full name"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Name in Hindi / हिंदी में नाम</Text>
-            <TextInput
-              style={styles.input}
-              value={nameHindi}
-              onChangeText={setNameHindi}
-              placeholder="हिंदी में नाम दर्ज करें"
             />
           </View>
 
@@ -114,10 +187,14 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveButton} onPress={saveProfile}>
-          <Text style={styles.saveButtonText}>Save Changes / परिवर्तन सहेजें</Text>
-          <Ionicons name="checkmark" size={24} color="white" />
+        <TouchableOpacity style={[styles.saveButton, { opacity: loading ? 0.7 : 1 }]} onPress={saveProfile} disabled={loading}>
+          <Text style={styles.saveButtonText}>
+            {loading ? 'Saving...' : 'Save Changes / परिवर्तन सहेजें'}
+          </Text>
+          <Ionicons name={loading ? "time" : "checkmark"} size={24} color="white" />
         </TouchableOpacity>
+        </>
+        )}
       </ScrollView>
     </View>
   );
@@ -242,5 +319,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748B',
   },
 });

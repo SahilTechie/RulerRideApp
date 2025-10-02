@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthService } from '@/services/auth';
 
 const menuItems = [
   { icon: 'person-outline', title: 'Edit Profile', titleHindi: 'प्रोफ़ाइल संपादित करें', action: 'edit' },
@@ -16,6 +18,42 @@ const menuItems = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [userPhone, setUserPhone] = useState('+91 9876543210'); // Default fallback
+  const [userName, setUserName] = useState('RulerRide User');
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      // Try to get phone number from AsyncStorage
+      const storedPhone = await AsyncStorage.getItem('user_phone');
+      if (storedPhone) {
+        setUserPhone(storedPhone);
+      }
+
+      // Try to get user name from AsyncStorage
+      const storedName = await AsyncStorage.getItem('user_name');
+      if (storedName) {
+        setUserName(storedName);
+      }
+
+      // Try to get user data from auth service
+      const currentUser = await AuthService.getCurrentUser();
+      if (currentUser) {
+        if (currentUser.name && currentUser.name !== 'New User') {
+          setUserName(currentUser.name);
+        }
+        if (currentUser.phone) {
+          setUserPhone(currentUser.phone);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      // Keep default values if error occurs
+    }
+  };
 
   const handleMenuPress = (action: string) => {
     switch (action) {
@@ -67,9 +105,8 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <Ionicons name="person" size={48} color="white" />
           </View>
-          <Text style={styles.userName}>Rahul Sharma</Text>
-          <Text style={styles.userNameHindi}>राहुल शर्मा</Text>
-          <Text style={styles.userPhone}>+91 9876543210</Text>
+          <Text style={styles.userName}>{userName}</Text>
+          <Text style={styles.userPhone}>{userPhone}</Text>
           <View style={styles.newUserBadge}>
             <Ionicons name="person-add" size={16} color="#3B82F6" />
             <Text style={styles.newUserText}>New User</Text>

@@ -8,6 +8,7 @@ const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '@/services/auth';
 import { apiService } from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState('');
@@ -121,6 +122,10 @@ export default function LoginScreen() {
       const authResult = await AuthService.verifyOTP('', otpCode);
       console.log('✅ OTP Verification Result:', authResult);
       
+      // Store phone number for profile use
+      const fullPhone = `+91${phone}`;
+      await AsyncStorage.setItem('user_phone', fullPhone);
+      
       // Navigate directly without Alert to avoid navigation issues
       console.log('🚀 Navigating to dashboard...');
       router.replace('/(tabs)');
@@ -203,6 +208,10 @@ export default function LoginScreen() {
       
       const authResult = await AuthService.verifyOTP('', otpCode);
       console.log('✅ Auto OTP Verification Result:', authResult);
+      
+      // Store phone number for profile use
+      const fullPhone = `+91${phone}`;
+      await AsyncStorage.setItem('user_phone', fullPhone);
       
       console.log('🚀 Navigating to dashboard...');
       router.replace('/(tabs)');

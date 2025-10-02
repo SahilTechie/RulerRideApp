@@ -4,117 +4,140 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-const paymentMethods: any[] = []; // Empty array for new user
+interface PaymentOption {
+  id: string;
+  name: string;
+  icon: string;
+  color?: string;
+  subtitle?: string;
+  offer?: string;
+  action?: string;
+}
+
+interface PaymentCategory {
+  category: string;
+  icon?: string;
+  subtitle?: string;
+  options: PaymentOption[];
+}
+
+const paymentOptions: PaymentCategory[] = [
+  {
+    category: 'UPI Apps',
+    icon: 'phone-portrait',
+    subtitle: 'Pay by any UPI app',
+    options: [
+      { id: 'paytm', name: 'Paytm', icon: 'wallet', color: '#00BAF2', offer: '₹10 - ₹100 Assured Cashback using Paytm UPI | Min. order value of ₹49 | 1st Aug\'25 - 31st Oct\'25' },
+      { id: 'phonepe', name: 'PhonePe', icon: 'phone-portrait', color: '#5f259f' },
+      { id: 'amazon', name: 'Amazon', icon: 'storefront', color: '#FF9900' },
+      { id: 'groww', name: 'Groww', icon: 'trending-up', color: '#00D09C' },
+    ]
+  },
+  {
+    category: 'Pay Later',
+    options: [
+      { id: 'pay-at-drop', name: 'Pay at drop', icon: 'location', subtitle: 'Go cashless, after ride pay by scanning QR code' },
+      { id: 'simpl', name: 'Simpl', icon: 'card', color: '#00D4AA', action: 'LINK' },
+    ]
+  },
+  {
+    category: 'Others',
+    options: [
+      { id: 'cash', name: 'Cash', icon: 'cash', color: '#4B5563' },
+    ]
+  }
+];
 
 export default function PaymentMethodsScreen() {
-  const [methods, setMethods] = useState(paymentMethods);
+  const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const router = useRouter();
 
-  const setAsDefault = (id: string) => {
-    setMethods(methods.map(method => ({
-      ...method,
-      isDefault: method.id === id
-    })));
-    Alert.alert('Success', 'Default payment method updated');
+  const handlePaymentSelect = (paymentId: string) => {
+    setSelectedPayment(paymentId);
+    Alert.alert('Payment Method Selected', `You selected ${paymentId}`);
   };
 
-  const removeMethod = (id: string) => {
-    Alert.alert(
-      'Remove Payment Method',
-      'Are you sure you want to remove this payment method?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
-          onPress: () => {
-            setMethods(methods.filter(method => method.id !== id));
-            Alert.alert('Success', 'Payment method removed');
-          },
-          style: 'destructive' 
-        },
-      ]
-    );
-  };
-
-  const addPaymentMethod = () => {
-    Alert.alert('Add Payment Method', 'This feature will be available soon');
+  const handleLinkPayment = (paymentId: string) => {
+    Alert.alert('Link Payment Method', `Link ${paymentId} to your account?`);
   };
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#DC2626', '#EF4444']} style={styles.header}>
+      <LinearGradient colors={['#1F2937', '#374151']} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment Methods</Text>
-        <Text style={styles.headerSubtitle}>भुगतान के तरीके</Text>
+        <Text style={styles.headerTitle}>Payments</Text>
+        <TouchableOpacity style={styles.helpButton}>
+          <Text style={styles.helpText}>Help</Text>
+        </TouchableOpacity>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={24} color="#3B82F6" />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Secure Payments</Text>
-            <Text style={styles.infoText}>
-              All your payment information is encrypted and secure. We support UPI, cards, and digital wallets.
-            </Text>
-          </View>
-        </View>
-
-        {methods.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>Your Payment Methods / आपके भुगतान के तरीके</Text>
-            <View style={styles.methodsContainer}>
-              {methods.map((method) => (
-                <View key={method.id} style={styles.methodCard}>
-                  {/* Existing method card content */}
+        {paymentOptions.map((category, categoryIndex) => (
+          <View key={categoryIndex} style={styles.categoryContainer}>
+            {category.category === 'UPI Apps' && (
+              <>
+                <View style={styles.upiHeader}>
+                  <Ionicons name="phone-portrait" size={24} color="#6B7280" />
+                  <Text style={styles.upiTitle}>Pay by any UPI app</Text>
                 </View>
-              ))}
-            </View>
-          </>
-        ) : (
-          <View style={styles.emptyStateContainer}>
-            <View style={styles.emptyStateIcon}>
-              <Ionicons name="wallet-outline" size={64} color="#9CA3AF" />
-            </View>
-            <Text style={styles.emptyStateTitle}>No Payment Methods</Text>
-            <Text style={styles.emptyStateTitleHindi}>कोई भुगतान तरीका नहीं</Text>
-            <Text style={styles.emptyStateSubtitle}>
-              Add a payment method to book rides easily
-            </Text>
-            <Text style={styles.emptyStateSubtitleHindi}>
-              आसानी से सवारी बुक करने के लिए भुगतान तरीका जोड़ें
-            </Text>
-          </View>
-        )}
+              </>
+            )}
+            
+            {category.category !== 'UPI Apps' && (
+              <Text style={styles.categoryTitle}>{category.category}</Text>
+            )}
 
-        <TouchableOpacity style={styles.addButton} onPress={addPaymentMethod}>
-          <Ionicons name="add-circle" size={24} color="white" />
-          <Text style={styles.addButtonText}>Add New Payment Method</Text>
-          <Text style={styles.addButtonSubtext}>नया भुगतान तरीका जोड़ें</Text>
+            {category.options.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.paymentOption,
+                  selectedPayment === option.id && styles.selectedOption
+                ]}
+                onPress={() => handlePaymentSelect(option.id)}
+              >
+                <View style={styles.optionContent}>
+                  <View style={[styles.optionIcon, { backgroundColor: option.color || '#F3F4F6' }]}>
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={24} 
+                      color={option.color ? 'white' : '#6B7280'} 
+                    />
+                  </View>
+                  
+                  <View style={styles.optionInfo}>
+                    <Text style={styles.optionName}>{option.name}</Text>
+                    {option.subtitle && (
+                      <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                    )}
+                    {option.offer && (
+                      <View style={styles.offerContainer}>
+                        <Ionicons name="pricetag" size={16} color="#DC2626" />
+                        <Text style={styles.offerText}>{option.offer}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {option.action && (
+                    <TouchableOpacity 
+                      style={styles.linkButton}
+                      onPress={() => handleLinkPayment(option.name)}
+                    >
+                      <Text style={styles.linkButtonText}>{option.action}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ))}
+
+        <TouchableOpacity style={styles.passbookButton}>
+          <Text style={styles.passbookText}>Show Passbook</Text>
+          <Ionicons name="chevron-forward" size={20} color="#6B7280" />
         </TouchableOpacity>
-
-        <View style={styles.supportedMethods}>
-          <Text style={styles.supportedTitle}>Supported Payment Methods</Text>
-          <View style={styles.supportedGrid}>
-            <View style={styles.supportedItem}>
-              <Ionicons name="phone-portrait" size={32} color="#7C3AED" />
-              <Text style={styles.supportedText}>UPI</Text>
-            </View>
-            <View style={styles.supportedItem}>
-              <Ionicons name="card" size={32} color="#059669" />
-              <Text style={styles.supportedText}>Cards</Text>
-            </View>
-            <View style={styles.supportedItem}>
-              <Ionicons name="wallet" size={32} color="#DC2626" />
-              <Text style={styles.supportedText}>Wallets</Text>
-            </View>
-            <View style={styles.supportedItem}>
-              <Ionicons name="cash" size={32} color="#EA580C" />
-              <Text style={styles.supportedText}>Cash</Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
@@ -123,227 +146,134 @@ export default function PaymentMethodsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#111827',
   },
   header: {
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
-    position: 'absolute',
-    left: 20,
-    top: 50,
     padding: 4,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
+    flex: 1,
+    marginLeft: 16,
   },
-  headerSubtitle: {
-    fontSize: 16,
+  helpButton: {
+    borderWidth: 1,
+    borderColor: '#6B7280',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  helpText: {
     color: 'white',
-    opacity: 0.9,
+    fontSize: 14,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    backgroundColor: '#111827',
   },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
+  categoryContainer: {
+    marginBottom: 24,
   },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E40AF',
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#1E40AF',
-    lineHeight: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 16,
-  },
-  methodsContainer: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  methodCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  methodHeader: {
+  upiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 12,
   },
-  methodIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FEE2E2',
+  upiTitle: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  paymentOption: {
+    backgroundColor: '#1F2937',
+    marginHorizontal: 20,
+    marginVertical: 2,
+    borderRadius: 8,
+  },
+  selectedOption: {
+    backgroundColor: '#374151',
+    borderWidth: 2,
+    borderColor: '#DC2626',
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  optionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  methodInfo: {
+  optionInfo: {
     flex: 1,
   },
-  methodName: {
+  optionName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: 'white',
+    marginBottom: 4,
   },
-  methodDetails: {
+  optionSubtitle: {
     fontSize: 14,
-    color: '#64748B',
-    marginTop: 2,
+    color: '#9CA3AF',
   },
-  methodType: {
+  offerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  offerText: {
     fontSize: 12,
     color: '#9CA3AF',
-    marginTop: 2,
-  },
-  defaultBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  defaultText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#16A34A',
-  },
-  methodActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    alignItems: 'center',
   },
-  removeButton: {
-    backgroundColor: '#FEE2E2',
+  linkButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  removeButtonText: {
-    color: '#DC2626',
-  },
-  emptyStateContainer: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  emptyStateIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  emptyStateTitleHindi: {
-    fontSize: 16,
-    color: '#64748B',
-    marginBottom: 16,
-  },
-  emptyStateSubtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 4,
-  },
-  emptyStateSubtitleHindi: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  addButton: {
-    backgroundColor: '#DC2626',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 30,
-  },
-  addButtonText: {
+  linkButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  addButtonSubtext: {
-    color: 'white',
-    fontSize: 14,
-    opacity: 0.9,
-  },
-  supportedMethods: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 30,
-  },
-  supportedTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  supportedGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  supportedItem: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  supportedText: {
     fontSize: 12,
-    color: '#64748B',
     fontWeight: '600',
+  },
+  passbookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  passbookText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
   },
 });

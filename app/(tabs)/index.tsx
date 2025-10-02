@@ -10,6 +10,7 @@ import LocationService from '../../services/location';
 import RideBookingService from '../../services/booking';
 import PremiumGoogleMaps from '../../components/PremiumGoogleMaps';
 import ImageSlideshow from '../../components/ImageSlideshow';
+import NameEntryPopup from '../../components/NameEntryPopup';
 import GooglePlacesService from '../../services/googlePlaces';
 import GoogleDirectionsService from '../../services/googleDirections';
 
@@ -50,6 +51,8 @@ export default function HomeScreen() {
     distanceText: string;
     durationText: string;
   } | null>(null);
+  const [showNamePopup, setShowNamePopup] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [nearbyVehicles, setNearbyVehicles] = useState<{
     id: string;
@@ -139,6 +142,17 @@ export default function HomeScreen() {
 
   const initializeApp = async () => {
     try {
+      // Check if user has completed name setup
+      const nameSetupCompleted = await AsyncStorage.getItem('name_setup_completed');
+      const storedUserName = await AsyncStorage.getItem('user_name');
+      
+      if (!nameSetupCompleted) {
+        // Show name entry popup for first-time users
+        setShowNamePopup(true);
+      } else if (storedUserName) {
+        setUserName(storedUserName);
+      }
+
       // Get user profile
       const profile = await AsyncStorage.getItem('userProfile');
       if (profile) {
@@ -538,6 +552,20 @@ export default function HomeScreen() {
     });
   };
 
+  // Handle name entry popup completion
+  const handleNameComplete = (name: string) => {
+    setUserName(name);
+    setShowNamePopup(false);
+    console.log('✅ User name saved:', name);
+  };
+
+  // Handle name entry popup skip
+  const handleNameSkip = () => {
+    setUserName('RulerRide User');
+    setShowNamePopup(false);
+    console.log('⏭️ User skipped name entry');
+  };
+
   const fareEstimate = calculateFare(estimatedDistance, selectedVehicle);
   const greeting = new Date().getHours() < 12 ? 'Good Morning!' : new Date().getHours() < 18 ? 'Good Afternoon!' : 'Good Evening!';
 
@@ -764,6 +792,13 @@ export default function HomeScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Name Entry Popup */}
+      <NameEntryPopup
+        visible={showNamePopup}
+        onComplete={handleNameComplete}
+        onSkip={handleNameSkip}
+      />
     </View>
   );
 }
