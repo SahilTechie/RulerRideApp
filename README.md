@@ -11,7 +11,7 @@ A modern ride-sharing mobile application built with React Native and Expo, featu
 - Ready for APK/AAB build generation
 
 ## Mobile App for Rider's
-<img width="300" height="800" alt="image" src="https://github.com/user-attachments/assets/ec7b3d14-258f-422a-9d80-5ef73a3ee349" />
+<div align="center"> <table> <tr> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/ec7b3d14-258f-422a-9d80-5ef73a3ee349" /></td> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/113f2660-1a0f-4e0d-85c6-407c2a1b421b" /></td> </tr> <tr> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/630a2612-270f-46c7-b761-a885b567c574" /></td> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/d16f0b06-4517-44c9-b0d7-2e612fd5b415" /></td> </tr> <tr> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/aed0ccde-54d8-40d8-9878-beda1f6d9dd6" /></td> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/ac78ace7-c093-46f1-b39f-3afdb258c000" /></td> </tr> <tr> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/222a67f7-6785-44de-b047-fc6ab95f656d" /></td> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/46973f61-dd55-41b7-83c7-805596c21537" /></td> </tr> <tr> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/b254455e-94b9-413e-8df7-71099ac6095a" /></td> <td><img width="270" height="540" src="https://github.com/user-attachments/assets/de7aec56-b03c-4f61-93b9-1e5f17e8bfc9" /></td> </tr> </table> </div>
 
 
 ## 🚧 Development Status
