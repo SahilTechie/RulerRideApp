@@ -1,4 +1,4 @@
-# RulerRideApp 🚗
+# RulerRide (RIDER APP)🚗
 
 A modern ride-sharing mobile application built with React Native and Expo, featuring real-time ride booking, user authentication, and payment integration.
 
@@ -9,6 +9,10 @@ A modern ride-sharing mobile application built with React Native and Expo, featu
 - Backend configured for mobile network connectivity
 - OTP authentication fully functional on mobile
 - Ready for APK/AAB build generation
+
+## Mobile App for Rider's
+<img width="300" height="800" alt="image" src="https://github.com/user-attachments/assets/ec7b3d14-258f-422a-9d80-5ef73a3ee349" />
+
 
 ## 🚧 Development Status
 
